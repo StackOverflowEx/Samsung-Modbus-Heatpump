@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Samsung Wärmepumpe konfigurieren",
+        "description": "Geben Sie die Verbindungsdaten für Ihren Modbus-Adapter ein.",
+        "data": {
+          "host": "IP-Adresse",
+          "port": "Port",
+          "device_id": "Modbus Slave ID",
+          "scan_interval": "Aktualisierungsintervall (Sekunden)",
+          "filename": "Dateiname der Gerätevorlage"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum Modbus-Gerät fehlgeschlagen.",
+      "unknown": "Ein unerwarteter Fehler ist aufgetreten."
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät ist bereits konfiguriert."
+    }
+  }
+}

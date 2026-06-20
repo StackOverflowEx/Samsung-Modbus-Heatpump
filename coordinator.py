@@ -1,0 +1,100 @@
+import logging
+import os
+import time
+from datetime import timedelta
+import asyncio
+from pymodbus.client import AsyncModbusTcpClient
+
+from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.const import CONF_HOST, CONF_PORT, CONF_DEVICE_ID, CONF_SCAN_INTERVAL, CONF_FILENAME
+
+from .const import DOMAIN
+from .device_template import DeviceTemplate
+
+_LOGGER = logging.getLogger(__name__)
+
+class SamsungModbusCoordinator(DataUpdateCoordinator):
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=DOMAIN,
+            update_interval=timedelta(seconds=entry.options.get(CONF_SCAN_INTERVAL, 30))
+        )
+        self.entry = entry
+        self.always_update = False
+        
+        self.last_poll_time = {}
+        self.measured_interval = {}
+        self.read_durations = {} 
+        
+        self.device_id = entry.data.get(CONF_DEVICE_ID)
+        
+        self.client = AsyncModbusTcpClient(
+            host=entry.data.get(CONF_HOST),
+            port=entry.data.get(CONF_PORT),
+        )
+        
+    async def async_setup(self):
+        await self.client.connect()
+        
+        template_filename = self.entry.options.get(CONF_FILENAME)
+        template_path = os.path.join(os.path.dirname(__file__), "templates")
+        template_file_path = os.path.join(template_path, template_filename)
+        
+        if not os.path.isfile(template_file_path):
+            _LOGGER.error(f"Device template file {template_filename} not found in {template_path}.")
+            return
+            
+        self.device_template = DeviceTemplate(template_file_path)
+        await self.device_template.load()
+        
+        for sub_device in self.device_template.sub_devices:
+            if len(sub_device.messageIds) > 0:
+                await self.client.write_registers(
+                    address=sub_device.messageIdBindingRegisterOffset, 
+                    values=list(sub_device.messageIds),
+                    device_id=self.device_id
+                )
+
+    async def _async_update_data(self):
+        device_data = {}
+        
+        for sub_device in self.device_template.sub_devices:
+            if not hasattr(sub_device, "min_address"):
+                continue
+
+            try:
+                read_start = time.time()
+                
+                sub_device_data = await self.client.read_holding_registers(
+                    address=sub_device.min_address,
+                    count=sub_device.max_address - sub_device.min_address + 1,
+                    device_id=self.device_id
+                )
+                _LOGGER.debug(f"Read {len(sub_device_data.registers) if sub_device_data.registers else 0} registers for {sub_device.name} (addresses {sub_device.min_address} to {sub_device.max_address})")
+                
+                read_end = time.time()
+                self.read_durations[sub_device.name] = read_end - read_start
+                
+                if sub_device_data.isError():
+                    raise UpdateFailed(f"Modbus Error reading {sub_device.name}: {sub_device_data}")
+                
+                now = time.time()
+                if sub_device.name in self.last_poll_time:
+                    self.measured_interval[sub_device.name] = now - self.last_poll_time[sub_device.name]
+                else:
+                    self.measured_interval[sub_device.name] = self.entry.options.get(CONF_SCAN_INTERVAL, 30)
+                
+                self.last_poll_time[sub_device.name] = now
+                device_data[sub_device] = sub_device_data
+                
+                await asyncio.sleep(0.1)
+                
+            except Exception as err:
+                raise UpdateFailed(f"Error fetching data for {sub_device.name}: {err}") from err
+                
+        return device_data

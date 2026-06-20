@@ -1,0 +1,408 @@
+name: Heatpump
+devices:
+  # ==========================================
+  # OUTDOOR UNIT (EHS Mono HT Quiet)
+  # ==========================================
+  - name: EHS Mono HT Quiet
+    model: AE080CXYDEK/EU
+    capacity: 8
+    capacity_unit: kW
+    bindMessageIdRegisterOffset: 6000
+    readMessageIdRegisterOffset: 4
+    registers:
+      # --- Fixed Outdoor Registers ---
+      - name: Modbus Module Error Status
+        address: 0
+        bits:
+          - name: Address Error
+            bit: 0
+          - name: Communication Error on R1/R2
+            bit: 1
+          - name: Tracking Error
+            bit: 2
+      - name: Outdoor Unit Error Code
+        address: 1
+        mapping:
+          0: No Error
+          fallback: "Error {value}"
+      - name: Defrost Operation
+        platform: binary_sensor
+        address: 2
+        mapping:
+          0: "Off"
+          255: "Off"
+          fallback: "On"
+
+      # --- Custom Outdoor Registers ---
+      - name: Operation Mode
+        messageId: 0x8001
+        mapping:
+          0: Stop
+          1: Safety
+          2: Normal
+          3: Balance
+          4: Recovery
+          5: Defrost
+          6: Comp Down
+          12: Pump Down
+          13: Pump Out
+          fallback: "Mode {value}"
+      - name: Operation Status
+        messageId: 0x8003
+        mapping:
+          0: Undefined
+          1: Cool
+          2: Heat
+          3: Cool Main
+          4: Heat Main
+      - name: Compressor Status
+        platform: binary_sensor
+        messageId: 0x8010
+      - name: Crankcase Heater Status
+        platform: binary_sensor
+        messageId: 0x8013
+      - name: Flow Switch Status
+        platform: binary_sensor
+        messageId: 0x803B
+      - name: Defrost Status
+        messageId: 0x8061
+        mapping:
+          0: Clear
+          1: Step 1
+          2: Step 2
+          3: Step 3
+          7: End
+          255: No Defrost
+          fallback: "Unknown {value}"
+      - name: Backup Operation Status
+        platform: binary_sensor
+        messageId: 0x80A5
+      - name: Comp Protection Control Status
+        platform: binary_sensor
+        messageId: 0x80A6
+      - name: Base Heater Status
+        platform: binary_sensor
+        messageId: 0x80AF
+      - name: PHE Heater Status
+        platform: binary_sensor
+        messageId: 0x80D7
+      - name: Waterout Type
+        messageId: 0x80D8
+        mapping:
+          0: Default
+          1: 70°C
+      - name: Outdoor Temperature
+        messageId: 0x8204
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: High Pressure
+        messageId: 0x8206
+        scale: 0.1
+        unit_of_measurement: "bar"
+        device_class: pressure
+        state_class: measurement
+      - name: Low Pressure
+        messageId: 0x8208
+        scale: 0.1
+        unit_of_measurement: "bar"
+        device_class: pressure
+        state_class: measurement
+      - name: Comp Discharge Temperature
+        messageId: 0x820A
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Compressor Current
+        messageId: 0x8217
+        scale: 0.1
+        unit_of_measurement: "A"
+        device_class: current
+        state_class: measurement
+      - name: Condenser Out Temperature
+        messageId: 0x8218
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Suction Temperature
+        messageId: 0x821A
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Double Tube Temperature
+        messageId: 0x821C
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Target Comp Discharge Temp
+        messageId: 0x8223
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Fan Speed Step Setting
+        messageId: 0x8226
+      - name: Main EEV Opening
+        messageId: 0x8229
+      - name: Order Frequency
+        messageId: 0x8236
+        unit_of_measurement: "Hz"
+        device_class: frequency
+        state_class: measurement
+      - name: Target Frequency
+        messageId: 0x8237
+        unit_of_measurement: "Hz"
+        device_class: frequency
+        state_class: measurement
+      - name: Current Frequency
+        messageId: 0x8238
+        unit_of_measurement: "Hz"
+        device_class: frequency
+        state_class: measurement
+      - name: Fan RPM
+        messageId: 0x823D
+        unit_of_measurement: "RPM"
+        state_class: measurement
+      - name: Desuperheater Temperature
+        messageId: 0x827A
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Condenser Mid-point Temperature
+        messageId: 0x8285
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Sat Temp High Pressure
+        messageId: 0x829F
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Sat Temp Low Pressure
+        messageId: 0x82A0
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Engine RPM
+        messageId: 0x82CF
+        scale: 0.1
+        unit_of_measurement: "RPM"
+        state_class: measurement
+      - name: Water In Temperature
+        messageId: 0x82DF
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Water Out Temperature
+        messageId: 0x82E0
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Comp Running Time
+        messageId: 0x8405
+        unit_of_measurement: "h"
+        device_class: duration
+        state_class: total_increasing
+      - name: Outdoor + Indoor Unit Power
+        messageId: 0x8413
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+      - name: Cumulative Outdoor Unit Energy
+        messageId: 0x8414
+        unit_of_measurement: "Wh"
+        device_class: energy
+        state_class: total_increasing
+
+  # ==========================================
+  # INDOOR UNIT (Tank Integrated Hydro)
+  # ==========================================
+  - name: Tank Integrated Hydro Unit
+    model: AE200RNWMEG/EU
+    capacity: 200
+    capacity_unit: l
+    bindMessageIdRegisterOffset: 7000
+    readMessageIdRegisterOffset: 82
+    registers:
+      # --- Fixed Indoor Registers ---
+      - name: Communication Status
+        address: 50
+        bits:
+          - name: Address Exists
+            bit: 0
+          - name: Type OK
+            bit: 1
+          - name: Device Ready
+            bit: 2
+          - name: Communication Error
+            bit: 3
+      - name: Indoor Unit Error Code
+        address: 63
+        mapping:
+          0: No Error
+          fallback: "Error {value}"
+      - name: Water-in Temperature
+        address: 65
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Water-out Temperature
+        address: 66
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Water-out Set Temperature
+        platform: number
+        mode: box
+        address: 68
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        min: 15
+        max: 65
+        step: 0.5
+      - name: DHW Operation
+        platform: switch
+        address: 72
+      - name: DHW Mode
+        platform: select
+        address: 73
+        mapping:
+          0: Eco
+          1: Standard
+          2: Power
+          3: Force
+      - name: DHW Set Temperature
+        platform: number
+        mode: box
+        address: 74
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        min: 30
+        max: 65
+        step: 0.5
+      - name: DHW Temperature
+        address: 75
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Quiet Mode
+        platform: switch
+        address: 78
+      - name: Outing Mode
+        platform: switch
+        address: 79
+
+      # --- Custom Indoor Registers ---
+      - name: DHW Demand
+        platform: binary_sensor
+        messageId: 0x4028
+      - name: Defrost Status Indoor
+        messageId: 0x402E
+        mapping:
+          0: Clear
+          1: Initialise
+          2: Run
+      - name: 3-Way Valve Status
+        messageId: 0x4067
+        mapping:
+          0: Room
+          1: Tank
+      - name: Backup Heater Status
+        messageId: 0x406C
+        mapping:
+          0: "Off"
+          1: "Step 1"
+          2: "Step 2"
+      - name: Booster Heater Status
+        platform: binary_sensor
+        messageId: 0x4087
+      - name: Water Pump Status
+        platform: binary_sensor
+        messageId: 0x4089
+      - name: Inverter Pump Speed
+        messageId: 0x40C4
+        unit_of_measurement: "%"
+        state_class: measurement
+      - name: DHW Thermostat Status
+        platform: binary_sensor
+        messageId: 0x40C5
+      - name: Heating Zone 1
+        platform: switch
+        messageId: 0x4119
+      - name: Water Flow
+        messageId: 0x42E9
+        scale: 0.1
+        unit_of_measurement: "l/min"
+        state_class: measurement
+      - name: Calculated Water Law Set Temp
+        messageId: 0x427F
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Heizkurve min. Außentemperatur
+        platform: number
+        mode: box
+        messageId: 0x4254
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        min: -20
+        max: 20
+        step: 1
+      - name: Heizkurve max. Außentemperatur
+        platform: number
+        mode: box
+        messageId: 0x4255
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        min: 10
+        max: 40
+        step: 1
+      - name: VL bei min. Außentemperatur
+        platform: number
+        mode: box
+        messageId: 0x4258
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        min: 25
+        max: 65
+        step: 0.5
+      - name: VL bei max. Außentemperatur
+        platform: number
+        mode: box
+        messageId: 0x4259
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        min: 15
+        max: 65
+        step: 0.5
+      - name: Hysterese Heizen
+        platform: number
+        mode: box
+        messageId: 0x431E
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        min: 0.5
+        max: 10
+        step: 0.5

@@ -1,0 +1,14 @@
+{
+  "domain": "samsung_modbus_hp",
+  "name": "Samsung Heatpump Modbus",
+  "version": "1.0.0",
+  "codeowners": [
+    "@StackOverflowEx"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://www.home-assistant.io/integrations/samsung_modbus_hp",
+  "integration_type": "hub",
+  "iot_class": "local_polling",
+  "requirements": []
+}
