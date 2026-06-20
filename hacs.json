@@ -1,0 +1,7 @@
+{
+    "name": "Samsung Heatpump Modbus",
+    "zip_release": true,
+    "filename": "samsung_modbus_hp.zip",
+    "homeassistant": "2025.6.0",
+    "persistent_directory": "templates/custom"
+}
