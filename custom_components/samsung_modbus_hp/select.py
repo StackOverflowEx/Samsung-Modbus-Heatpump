@@ -3,37 +3,23 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.components.select import SelectEntity
 
-from .const import DOMAIN
-from .entity import SamsungModbusEntity
+from .entity import SamsungModbusEntity, async_setup_platform_entry
+from .utils import get_mapped_value, extract_options_from_mapping
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    coordinator = hass.data[DOMAIN][entry.entry_id]
-    entities = [
-        SamsungModbusSelect(coordinator, sub_device, reg, entry.entry_id)
-        for sub_device in coordinator.device_template.sub_devices
-        for reg in sub_device.definition.get("registers", [])
-        if reg.get("platform") == "select"
-    ]
-    async_add_entities(entities)
+    await async_setup_platform_entry(hass, entry, async_add_entities, "select", SamsungModbusSelect)
 
 class SamsungModbusSelect(SamsungModbusEntity, SelectEntity):
     def __init__(self, coordinator, sub_device, register_def, entry_id):
         super().__init__(coordinator, sub_device, register_def, entry_id)
         
         self._mapping = register_def.get("mapping", {})
-        self._attr_options = [str(val) for key, val in self._mapping.items() if key != "fallback"]
+        self._attr_options = extract_options_from_mapping(self._mapping)
 
     @property
     def current_option(self) -> str | None:
         raw_val = self._get_raw_value()
-        if raw_val is None: 
-            return None
-            
-        if raw_val in self._mapping: 
-            return str(self._mapping[raw_val])
-            
-        fallback = self._mapping.get("fallback")
-        return fallback.format(value=raw_val) if fallback else None
+        return get_mapped_value(raw_val, self._mapping)
 
     async def async_select_option(self, option: str) -> None:
         write_val = next(
@@ -41,5 +27,4 @@ class SamsungModbusSelect(SamsungModbusEntity, SelectEntity):
             None
         )
         if write_val is not None:
-            await self.coordinator.client.write_register(self.register_def["address"], write_val)
-            await self.coordinator.async_request_refresh()
+            await self.async_write_modbus_register(write_val)

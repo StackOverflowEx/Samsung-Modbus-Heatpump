@@ -345,6 +345,7 @@ devices:
       - name: Heating Zone 1
         platform: switch
         messageId: 0x4119
+        timeout: 300
       - name: Water Flow
         messageId: 0x42E9
         scale: 0.1
@@ -356,53 +357,3 @@ devices:
         unit_of_measurement: "°C"
         device_class: temperature
         state_class: measurement
-      - name: Heizkurve min. Außentemperatur
-        platform: number
-        mode: box
-        messageId: 0x4254
-        scale: 0.1
-        unit_of_measurement: "°C"
-        device_class: temperature
-        min: -20
-        max: 20
-        step: 1
-      - name: Heizkurve max. Außentemperatur
-        platform: number
-        mode: box
-        messageId: 0x4255
-        scale: 0.1
-        unit_of_measurement: "°C"
-        device_class: temperature
-        min: 10
-        max: 40
-        step: 1
-      - name: VL bei min. Außentemperatur
-        platform: number
-        mode: box
-        messageId: 0x4258
-        scale: 0.1
-        unit_of_measurement: "°C"
-        device_class: temperature
-        min: 25
-        max: 65
-        step: 0.5
-      - name: VL bei max. Außentemperatur
-        platform: number
-        mode: box
-        messageId: 0x4259
-        scale: 0.1
-        unit_of_measurement: "°C"
-        device_class: temperature
-        min: 15
-        max: 65
-        step: 0.5
-      - name: Hysterese Heizen
-        platform: number
-        mode: box
-        messageId: 0x431E
-        scale: 0.1
-        unit_of_measurement: "°C"
-        device_class: temperature
-        min: 0.5
-        max: 10
-        step: 0.5

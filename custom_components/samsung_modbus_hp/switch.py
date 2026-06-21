@@ -3,18 +3,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.components.switch import SwitchEntity
 
-from .const import DOMAIN
-from .entity import SamsungModbusEntity
+from .entity import SamsungModbusEntity, async_setup_platform_entry
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    coordinator = hass.data[DOMAIN][entry.entry_id]
-    entities = [
-        SamsungModbusSwitch(coordinator, sub_device, reg, entry.entry_id)
-        for sub_device in coordinator.device_template.sub_devices
-        for reg in sub_device.definition.get("registers", [])
-        if reg.get("platform") == "switch"
-    ]
-    async_add_entities(entities)
+    await async_setup_platform_entry(hass, entry, async_add_entities, "switch", SamsungModbusSwitch)
 
 class SamsungModbusSwitch(SamsungModbusEntity, SwitchEntity):
     @property
@@ -22,10 +14,8 @@ class SamsungModbusSwitch(SamsungModbusEntity, SwitchEntity):
         raw_val = self._get_raw_value()
         return bool(raw_val) if raw_val is not None else None
 
-    async def async_turn_on(self, **kwargs):
-        await self.coordinator.client.write_register(self.register_def["address"], 1)
-        await self.coordinator.async_request_refresh()
+    async def async_turn_on(self, **kwargs) -> None:
+        await self.async_write_modbus_register(1)
 
-    async def async_turn_off(self, **kwargs):
-        await self.coordinator.client.write_register(self.register_def["address"], 0)
-        await self.coordinator.async_request_refresh()
+    async def async_turn_off(self, **kwargs) -> None:
+        await self.async_write_modbus_register(0)

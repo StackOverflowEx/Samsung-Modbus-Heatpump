@@ -1,0 +1,23 @@
+set_field_setting_value:
+  name: "Set Field Setting Value (FSV)"
+  description: "Dynamically binds a message ID and writes a new Field Setting Value to the heat pump."
+  fields:
+    unit_name:
+      name: "Unit Name"
+      description: "The name of the heat pump unit to target (e.g., 'Tank Integrated Hydro Unit')."
+      required: true
+      selector:
+        text:
+    fsv_code:
+      name: "FSV Code"
+      description: "The FSV code you want to change (e.g., '2011')."
+      required: true
+      selector:
+        text:
+    value:
+      name: "Value"
+      description: "The new raw value to write to the FSV."
+      required: true
+      selector:
+        number:
+          mode: box
