@@ -139,7 +139,19 @@ class SamsungModbusCoordinator(DataUpdateCoordinator):
                 parsed_data = {}
                 if hasattr(sub_device_data, "registers") and sub_device_data.registers:
                     for i, val in enumerate(sub_device_data.registers):
-                        parsed_data[sub_device.min_address + i] = val
+                        address = sub_device.min_address + i
+                        
+                        if address in self.pending_writes:
+                            expiration_time, pending_val = self.pending_writes[address]
+                            if now < expiration_time:
+                                if val != pending_val:
+                                    val = pending_val
+                                else:
+                                    del self.pending_writes[address]
+                            else:
+                                del self.pending_writes[address]
+                                
+                        parsed_data[address] = val
                         
                 device_data[sub_device] = parsed_data
                 
