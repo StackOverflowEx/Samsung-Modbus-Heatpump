@@ -362,9 +362,3 @@ devices:
         unit_of_measurement: "°C"
         device_class: temperature
         state_class: measurement
-      - name: Water Out Zone 2
-        messageId: 0x42d9
-        scale: 0.1
-        unit_of_measurement: "°C"
-        device_class: temperature
-        state_class: measurement
