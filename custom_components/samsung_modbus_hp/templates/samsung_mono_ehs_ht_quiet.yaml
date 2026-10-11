@@ -357,13 +357,13 @@ devices:
         device_class: temperature
         state_class: measurement
       - name: Water Out Zone 1
-        message: 0x42d8
+        messageId: 0x42d8
         scale: 0.1
         unit_of_measurement: "°C"
         device_class: temperature
         state_class: measurement
       - name: Water Out Zone 2
-        message: 0x42d9
+        messageId: 0x42d9
         scale: 0.1
         unit_of_measurement: "°C"
         device_class: temperature

@@ -91,11 +91,13 @@ class SamsungModbusSensor(SamsungModbusEntity, SensorEntity):
         self._attr_state_class = register_def.get("state_class")
         self._scale = register_def.get("scale", 1.0)
 
-        self._attr_suggested_display_precision = calculate_display_precision(
-            self._scale
+        mapping = register_def.get("mapping")
+        # Precision makes Home Assistant expect a numeric state, even without
+        # a unit or device class. Mapped states such as "No Error" are text.
+        self._attr_suggested_display_precision = (
+            None if mapping else calculate_display_precision(self._scale)
         )
 
-        mapping = register_def.get("mapping")
         if mapping and "fallback" not in mapping:
             self._attr_options = extract_options_from_mapping(mapping)
             if not self._attr_device_class:
