@@ -1,44 +1,54 @@
-from custom_components.samsung_modbus_hp.services import async_setup_services
+from .services import async_setup_services
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
 
 from .const import DOMAIN
 from .coordinator import SamsungModbusCoordinator
 
 PLATFORMS = [
-    Platform.SENSOR, 
-    Platform.BINARY_SENSOR, 
-    Platform.SWITCH, 
-    Platform.SELECT, 
-    Platform.NUMBER
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.SWITCH,
+    Platform.SELECT,
+    Platform.NUMBER,
 ]
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    await async_setup_services(hass)
+    return True
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
-    
+
     coordinator = SamsungModbusCoordinator(hass, entry)
+    try:
+        await coordinator.async_setup()
+        await coordinator.async_config_entry_first_refresh()
+    except BaseException:
+        await coordinator.async_close()
+        raise
     hass.data[DOMAIN][entry.entry_id] = coordinator
-    
-    await coordinator.async_setup()
-    
-    await coordinator.async_config_entry_first_refresh()
-    
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
-    
-    await async_setup_services(hass, coordinator)
-    
+
+    await async_setup_services(hass)
+
     return True
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         coordinator = hass.data[DOMAIN][entry.entry_id]
-        coordinator.client.close()
+        await coordinator.async_shutdown()
+        await coordinator.async_close()
         del hass.data[DOMAIN][entry.entry_id]
     return unload_ok
+
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)

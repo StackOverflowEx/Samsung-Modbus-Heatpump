@@ -133,18 +133,6 @@ devices:
         unit_of_measurement: "°C"
         device_class: temperature
         state_class: measurement
-      - name: Double Tube Temperature
-        messageId: 0x821C
-        scale: 0.1
-        unit_of_measurement: "°C"
-        device_class: temperature
-        state_class: measurement
-      - name: Target Comp Discharge Temp
-        messageId: 0x8223
-        scale: 0.1
-        unit_of_measurement: "°C"
-        device_class: temperature
-        state_class: measurement
       - name: Fan Speed Step Setting
         messageId: 0x8226
       - name: Main EEV Opening
@@ -164,22 +152,6 @@ devices:
         unit_of_measurement: "Hz"
         device_class: frequency
         state_class: measurement
-      - name: Fan RPM
-        messageId: 0x823D
-        unit_of_measurement: "RPM"
-        state_class: measurement
-      - name: Desuperheater Temperature
-        messageId: 0x827A
-        scale: 0.1
-        unit_of_measurement: "°C"
-        device_class: temperature
-        state_class: measurement
-      - name: Condenser Mid-point Temperature
-        messageId: 0x8285
-        scale: 0.1
-        unit_of_measurement: "°C"
-        device_class: temperature
-        state_class: measurement
       - name: Sat Temp High Pressure
         messageId: 0x829F
         scale: 0.1
@@ -191,11 +163,6 @@ devices:
         scale: 0.1
         unit_of_measurement: "°C"
         device_class: temperature
-        state_class: measurement
-      - name: Engine RPM
-        messageId: 0x82CF
-        scale: 0.1
-        unit_of_measurement: "RPM"
         state_class: measurement
       - name: Water In Temperature
         messageId: 0x82DF
@@ -209,21 +176,6 @@ devices:
         unit_of_measurement: "°C"
         device_class: temperature
         state_class: measurement
-      - name: Comp Running Time
-        messageId: 0x8405
-        unit_of_measurement: "h"
-        device_class: duration
-        state_class: total_increasing
-      - name: Outdoor + Indoor Unit Power
-        messageId: 0x8413
-        unit_of_measurement: "W"
-        device_class: power
-        state_class: measurement
-      - name: Cumulative Outdoor Unit Energy
-        messageId: 0x8414
-        unit_of_measurement: "Wh"
-        device_class: energy
-        state_class: total_increasing
 
   # ==========================================
   # INDOOR UNIT (Tank Integrated Hydro)

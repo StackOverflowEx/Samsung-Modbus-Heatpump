@@ -2,6 +2,12 @@ set_field_setting_value:
   name: "Set Field Setting Value (FSV)"
   description: "Dynamically binds a message ID and writes a new Field Setting Value to the heat pump."
   fields:
+    entry_id:
+      name: Configuration entry
+      description: Required when multiple configured heat pumps contain the same unit name.
+      selector:
+        config_entry:
+          integration: samsung_modbus_hp
     unit_name:
       name: "Unit Name"
       description: "The name of the heat pump unit to target (e.g., 'Tank Integrated Hydro Unit')."
@@ -21,3 +27,17 @@ set_field_setting_value:
       selector:
         number:
           mode: box
+          min: 0
+          max: 65535
+          step: 1
+
+reload:
+  name: Reload configuration
+  description: Reload device templates and recreate entities without restarting Home Assistant. Reloads all configured heat pumps unless an entry is selected.
+  fields:
+    entry_id:
+      name: Configuration entry
+      description: Optionally reload only this heat pump.
+      selector:
+        config_entry:
+          integration: samsung_modbus_hp
