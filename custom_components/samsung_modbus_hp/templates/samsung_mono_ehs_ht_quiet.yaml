@@ -58,9 +58,6 @@ devices:
       - name: Compressor Status
         platform: binary_sensor
         messageId: 0x8010
-      - name: Crankcase Heater Status
-        platform: binary_sensor
-        messageId: 0x8013
       - name: Flow Switch Status
         platform: binary_sensor
         messageId: 0x803B
@@ -133,10 +130,24 @@ devices:
         unit_of_measurement: "°C"
         device_class: temperature
         state_class: measurement
+      - name: Double Tube Temperature
+        messageId: 0x821C
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Target Comp Discharge Temp
+        messageId: 0x8223
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
       - name: Fan Speed Step Setting
         messageId: 0x8226
+        state_class: measurement
       - name: Main EEV Opening
         messageId: 0x8229
+        state_class: measurement
       - name: Order Frequency
         messageId: 0x8236
         unit_of_measurement: "Hz"
@@ -152,6 +163,22 @@ devices:
         unit_of_measurement: "Hz"
         device_class: frequency
         state_class: measurement
+      - name: Fan RPM
+        messageId: 0x823D
+        unit_of_measurement: "RPM"
+        state_class: measurement
+      - name: Desuperheater Temperature
+        messageId: 0x827A
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Condenser Mid-point Temperature
+        messageId: 0x8285
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
       - name: Sat Temp High Pressure
         messageId: 0x829F
         scale: 0.1
@@ -163,6 +190,11 @@ devices:
         scale: 0.1
         unit_of_measurement: "°C"
         device_class: temperature
+        state_class: measurement
+      - name: Engine RPM
+        messageId: 0x82CF
+        scale: 0.1
+        unit_of_measurement: "RPM"
         state_class: measurement
       - name: Water In Temperature
         messageId: 0x82DF
@@ -176,6 +208,21 @@ devices:
         unit_of_measurement: "°C"
         device_class: temperature
         state_class: measurement
+      - name: Comp Running Time
+        messageId: 0x8405
+        unit_of_measurement: "h"
+        device_class: duration
+        state_class: total_increasing
+      - name: Outdoor + Indoor Unit Power
+        messageId: 0x8413
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+      - name: Cumulative Outdoor Unit Energy
+        messageId: 0x8414
+        unit_of_measurement: "Wh"
+        device_class: energy
+        state_class: total_increasing
 
   # ==========================================
   # INDOOR UNIT (Tank Integrated Hydro)
@@ -305,6 +352,18 @@ devices:
         state_class: measurement
       - name: Calculated Water Law Set Temp
         messageId: 0x427F
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Water Out Zone 1
+        message: 0x42d8
+        scale: 0.1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Water Out Zone 2
+        message: 0x42d9
         scale: 0.1
         unit_of_measurement: "°C"
         device_class: temperature
