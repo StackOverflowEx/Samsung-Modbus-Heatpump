@@ -8,6 +8,20 @@ from .entity import SamsungModbusEntity, async_setup_platform_entry, BitExtracto
 
 
 def binary_sensor_factory(coordinator, sub_device, reg, entry_id):
+    if "masks" in reg:
+        return [
+            SamsungModbusBinarySensor(
+                coordinator,
+                sub_device,
+                {
+                    **{key: value for key, value in reg.items() if key != "masks"},
+                    **mask_def,
+                    "name": f"{reg['name']} {mask_def['name']}",
+                },
+                entry_id,
+            )
+            for mask_def in reg["masks"]
+        ]
     if "bits" in reg:
         return [
             SamsungModbusBitSensor(coordinator, sub_device, reg, bit_def, entry_id)
@@ -30,6 +44,10 @@ class SamsungModbusBinarySensor(SamsungModbusEntity, BinarySensorEntity):
         raw_val = self._get_raw_value()
         if raw_val is None:
             return None
+
+        if "mask" in self.register_def:
+            is_set = bool(raw_val & self.register_def["mask"])
+            return not is_set if self.register_def.get("invert", False) else is_set
 
         mapping = self.register_def.get("mapping", {})
         if mapping:

@@ -99,12 +99,77 @@ For example, this register definition creates a temperature sensor:
 - name: Water In Temperature
   messageId: 0x82DF
   scale: 0.1
+  signed: true
   unit_of_measurement: "°C"
   device_class: temperature
   state_class: measurement
 ```
 
-Supported platforms are `sensor` (the default), `binary_sensor`, `switch`, `select`, and `number`. See the included template for mappings, bit definitions, setpoint limits, and write timeouts. Register values are currently interpreted as unsigned 16-bit values; signed temperatures and multi-register data need explicit support before adding such definitions.
+Supported platforms are `sensor` (the default), `binary_sensor`, `switch`, `select`, and `number`. See the included template for mappings, bit definitions, setpoint limits, and write timeouts. Multi-register data is not supported.
+
+For registers that can be negative, add `signed: true` to their YAML definition. This decodes a 16-bit two's-complement value before applying `scale`: for example, raw `65526` becomes `-10`, then `-1.0 °C` with `scale: 0.1`. The included template enables this for all temperature registers. Registers without `signed: true` remain unsigned (`0`–`65535`), preserving status bits, error codes, and counters.
+
+Custom templates also need `signed: true` on their temperature definitions; reload after editing them. Signed number controls encode negative values back into the unsigned Modbus word, including optimistic readback. Their raw signed range is `-32768`–`32767`; the template's `min` and `max` still define the allowed setpoint range. The FSV action continues to accept raw unsigned words.
+
+### Binary sensor masks
+
+Use `masks` to create several binary sensors from one register. Masks are only supported with `platform: binary_sensor`:
+
+```yaml
+- name: Communication Status
+  address: 50
+  platform: binary_sensor
+  masks:
+    - name: Address Exists
+      mask: 1
+    - name: Type OK
+      mask: 2
+    - name: Device Ready
+      mask: 4
+    - name: Communication Error
+      mask: 8
+```
+
+This creates entities named **Communication Status Address Exists**, **Communication Status Type OK**, and so on (Home Assistant can also prefix the device name). A sensor is ON when **any** bit selected by its mask is set: `(raw_value & mask) != 0`. Decimal, hexadecimal, and binary YAML integers are supported, for example `2`, `0x02`, and `0b10`. Missing register data stays Unknown, including for inverted masks.
+
+Use `invert: true` when the output is ON while the selected bit is clear. For the supplied `0x408A` two-way valve table, zone 1 (B10) uses **bit 0**, and zone 2 (B14) uses **bit 1**:
+
+```yaml
+- name: Pump Status
+  messageId: 0x408A
+  platform: binary_sensor
+  masks:
+    - name: Zone 1
+      mask: 0b01
+      invert: true
+    - name: Zone 2
+      mask: 0b10
+      invert: true
+```
+
+| Raw value | Pump Status Zone 1 (B10) | Pump Status Zone 2 (B14) |
+| --- | --- | --- |
+| 0 | ON | ON |
+| 1 | OFF | ON |
+| 2 | ON | OFF |
+| 3 | OFF | OFF |
+
+Alternatively, use `mask` and optional `invert` directly on a binary sensor definition. Multiple definitions may share a `messageId` or fixed `address`; give each entity a distinct name:
+
+```yaml
+- name: Zone 1 Valve
+  messageId: 0x408A
+  platform: binary_sensor
+  mask: 1
+  invert: true
+- name: Zone 2 Valve
+  messageId: 0x408A
+  platform: binary_sensor
+  mask: 2
+  invert: true
+```
+
+Repeated message IDs share one binding and register address per device. Unique IDs are bound in order of first appearance. Masks cannot be combined with `bits` or `mapping` on the same definition; existing `bits` definitions remain supported. The included template now exposes Communication Status as four binary sensors instead of one text summary; an old summary entity can be removed from the entity registry after updating.
 
 ### Reload after editing YAML
 

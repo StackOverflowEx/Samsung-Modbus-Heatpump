@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.util import slugify
 from homeassistant.const import CONF_SCAN_INTERVAL
+from homeassistant.exceptions import ServiceValidationError
 
 from .const import DOMAIN
 from .utils import get_mapped_value
@@ -99,6 +100,14 @@ class SamsungModbusEntity(CoordinatorEntity):
             self._report_value_problem("missing", "No register data; state is unknown")
         elif not self.register_def.get("mapping"):
             self._report_value_problem(None)
+        # Modbus transports unsigned words; decode two's complement before
+        # entity-specific scaling or mapping, keeping coordinator data raw.
+        if (
+            value is not None
+            and self.register_def.get("signed", False)
+            and value >= 0x8000
+        ):
+            value -= 0x10000
         return value
 
     def _report_value_problem(self, problem, reason=""):
@@ -136,6 +145,13 @@ class SamsungModbusEntity(CoordinatorEntity):
     async def async_write_modbus_register(self, value: int) -> None:
         """Helper to write to Modbus and apply optimistic UI masking."""
         target_address = self.register_def["address"]
+
+        if self.register_def.get("signed", False):
+            if type(value) is not int or not -32768 <= value <= 32767:
+                raise ServiceValidationError(
+                    f"Signed register {target_address} requires a value from -32768 to 32767; got {value!r}"
+                )
+            value &= 0xFFFF
 
         scan_interval = self.coordinator.entry.options.get(CONF_SCAN_INTERVAL, 30)
         custom_timeout = self.register_def.get("timeout", scan_interval)

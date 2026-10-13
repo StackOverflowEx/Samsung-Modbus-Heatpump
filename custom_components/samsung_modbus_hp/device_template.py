@@ -1,6 +1,7 @@
 import aiofiles
 import yaml
 import logging
+from homeassistant.util import slugify
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ class SubDeviceTemplate:
     def _process_message_ids(self):
         """Process messageId definitions and convert to addresses."""
         register = self.definition.get("readMessageIdRegisterOffset", None)
+        message_addresses = {}
         for register_def in self.definition.get("registers", []):
             if register is None or self.messageIdBindingRegisterOffset is None:
                 if "messageId" in register_def:
@@ -80,9 +82,12 @@ class SubDeviceTemplate:
                     _LOGGER.warning(
                         f"SubDevice {self.name} register definition has both 'address' and 'messageId' defined. 'address' will be ignored."
                     )
-                register_def["address"] = register
-                self.messageIds.append(register_def["messageId"])
-                register += 1
+                message_id = register_def["messageId"]
+                if message_id not in message_addresses:
+                    message_addresses[message_id] = register
+                    self.messageIds.append(message_id)
+                    register += 1
+                register_def["address"] = message_addresses[message_id]
 
     def _calculate_address_range(self):
         """Calculate min/max addresses for all registers."""
@@ -105,6 +110,11 @@ class SubDeviceTemplate:
         for reg in registers:
             if not isinstance(reg, dict) or not isinstance(reg.get("name"), str):
                 raise ValueError(f"Each register in {self.name} needs a name")
+            if "signed" in reg and type(reg["signed"]) is not bool:
+                raise ValueError(
+                    f"signed must be a boolean for {self.name} / {reg['name']}"
+                )
+            self._validate_masks(reg)
             if "messageId" not in reg and "address" not in reg:
                 raise ValueError(
                     f"Register {reg['name']} in {self.name} needs address or messageId"
@@ -125,6 +135,50 @@ class SubDeviceTemplate:
                 )
         self._process_message_ids()
         self._calculate_address_range()
+
+    def _validate_masks(self, reg):
+        """Reject ambiguous masks during setup with the register's context."""
+        if not any(key in reg for key in ("mask", "masks", "invert")):
+            return
+        context = f"{self.name} / {reg['name']}"
+        if reg.get("platform", "sensor") != "binary_sensor":
+            raise ValueError(f"Masks are only supported for binary_sensor: {context}")
+        if "bits" in reg or "mapping" in reg:
+            raise ValueError(
+                f"Masks cannot be combined with bits or mapping: {context}"
+            )
+        if "masks" in reg:
+            if "mask" in reg or "invert" in reg:
+                raise ValueError(
+                    f"Put mask and invert inside each masks entry: {context}"
+                )
+            definitions = reg["masks"]
+            if not isinstance(definitions, list) or not definitions:
+                raise ValueError(f"masks must be a non-empty list: {context}")
+            names = set()
+            for definition in definitions:
+                if not isinstance(definition, dict):
+                    raise ValueError(f"Each masks entry must be an object: {context}")
+                name = definition.get("name")
+                if not isinstance(name, str) or not slugify(name):
+                    raise ValueError(
+                        f"Each masks entry needs a non-empty name: {context}"
+                    )
+                if slugify(name) in names:
+                    raise ValueError(f"Duplicate masks entity name {name!r}: {context}")
+                names.add(slugify(name))
+                if set(definition) - {"name", "mask", "invert"}:
+                    raise ValueError(
+                        f"Masks entries only accept name, mask and invert: {context}"
+                    )
+        else:
+            definitions = [reg]
+        for definition in definitions:
+            mask = definition.get("mask")
+            if type(mask) is not int or not 1 <= mask <= 0xFFFF:
+                raise ValueError(f"mask must be an integer from 1 to 65535: {context}")
+            if "invert" in definition and type(definition["invert"]) is not bool:
+                raise ValueError(f"invert must be a boolean: {context}")
 
     def get_final_message_ids(self, additional_ids: list[int] = None) -> list[int]:
         """Merge message IDs with additional ones."""
