@@ -21,47 +21,19 @@ async def async_setup_platform_entry(
     async_add_entities: AddEntitiesCallback,
     platform_name: str,
     entity_class,
-    entity_factory_func=None,
 ) -> None:
     """Generic setup for all platform types."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
     entities = []
 
     for sub_device in coordinator.device_template.sub_devices:
-        for reg in sub_device.definition.get("registers", []):
+        for reg in sub_device.entity_definitions():
             if reg.get("platform", "sensor") == platform_name:
-                if entity_factory_func:
-                    entities.extend(
-                        entity_factory_func(
-                            coordinator, sub_device, reg, entry.entry_id
-                        )
-                    )
-                else:
-                    entities.append(
-                        entity_class(coordinator, sub_device, reg, entry.entry_id)
-                    )
+                entities.append(
+                    entity_class(coordinator, sub_device, reg, entry.entry_id)
+                )
 
     async_add_entities(entities)
-
-
-class BitExtractorMixin:
-    """Handles bit extraction from register values."""
-
-    def _get_active_bits(self) -> list[dict]:
-        """Get active bit definitions from current register value."""
-        raw_val = self._get_raw_value()
-        if raw_val is None:
-            return []
-        return [
-            bit_def
-            for bit_def in self.register_def.get("bits", [])
-            if raw_val & (1 << bit_def["bit"])
-        ]
-
-    def _is_bit_set(self, bit_index: int) -> bool | None:
-        """Check if specific bit is set."""
-        raw_val = self._get_raw_value()
-        return bool(raw_val & (1 << bit_index)) if raw_val is not None else None
 
 
 class SamsungModbusEntity(CoordinatorEntity):
@@ -110,6 +82,15 @@ class SamsungModbusEntity(CoordinatorEntity):
             value -= 0x10000
         return value
 
+    def _get_field_value(self):
+        """Extract a writable field; binary sensors keep their any-bit semantics."""
+        value = self._get_raw_value()
+        mask = self.register_def.get("mask")
+        if value is not None and mask is not None:
+            shift = (mask & -mask).bit_length() - 1
+            return (value & mask) >> shift
+        return value
+
     def _report_value_problem(self, problem, reason=""):
         """Log state problems once per transition, rather than on every read."""
         if problem == self._value_problem:
@@ -156,8 +137,17 @@ class SamsungModbusEntity(CoordinatorEntity):
         scan_interval = self.coordinator.entry.options.get(CONF_SCAN_INTERVAL, 30)
         custom_timeout = self.register_def.get("timeout", scan_interval)
 
-        await self.coordinator.async_write_register(
-            target_address, value, self.sub_device, custom_timeout
-        )
+        if "mask" in self.register_def:
+            await self.coordinator.async_write_masked_register(
+                target_address,
+                value,
+                self.register_def["mask"],
+                self.sub_device,
+                custom_timeout,
+            )
+        else:
+            await self.coordinator.async_write_register(
+                target_address, value, self.sub_device, custom_timeout
+            )
 
         self.async_write_ha_state()

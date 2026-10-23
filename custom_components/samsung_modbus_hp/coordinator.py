@@ -134,8 +134,70 @@ class SamsungModbusCoordinator(DataUpdateCoordinator):
         async with self._io_lock:
             return await self._bind_message_ids(sub_device, additional_ids)
 
+    async def async_write_masked_register(
+        self, address, value, mask, sub_device, timeout
+    ):
+        """Read/merge/write one field atomically, preserving pending changes."""
+        if type(mask) is not int or not 1 <= mask <= 0xFFFF:
+            raise ServiceValidationError("Mask must be an integer from 1 to 65535")
+        shift = (mask & -mask).bit_length() - 1
+        field_max = mask >> shift
+        if field_max & (field_max + 1):
+            raise ServiceValidationError("Writable masks must select contiguous bits")
+        if type(value) is not int or not 0 <= value <= field_max:
+            raise ServiceValidationError(
+                f"Value {value!r} does not fit mask {mask:#06x}"
+            )
+        async with self._io_lock:
+            pending = self.pending_writes.get((sub_device, address))
+            now = time.monotonic()
+            try:
+                if pending is not None and pending[0] > now:
+                    # Device readback may still contain the old value. Preserve
+                    # the most recent accepted write, including the other field.
+                    current = pending[1]
+                    timeout = max(timeout, pending[0] - now)
+                else:
+                    response = await self.client.read_holding_registers(
+                        address=address, count=1, device_id=self.device_id
+                    )
+                    self._check_response(
+                        response, f"Reading register {address} before masked write"
+                    )
+                    registers = getattr(response, "registers", None)
+                    if registers is None or len(registers) != 1:
+                        raise HomeAssistantError(
+                            f"Expected one register at {address} before masked write"
+                        )
+                    current = registers[0]
+                if type(current) is not int or not 0 <= current <= 0xFFFF:
+                    raise HomeAssistantError(
+                        f"Invalid register value {current!r} at {address}"
+                    )
+                merged = (current & (0xFFFF ^ mask)) | (value << shift)
+                await self._write_register(address, merged, sub_device)
+                self._apply_pending_write(address, merged, sub_device, timeout)
+            except (ModbusException, OSError, HomeAssistantError) as err:
+                _LOGGER.error(
+                    "Masked write failed for %s, device %s, register %s, mask %#06x, value %s: %s",
+                    sub_device.name,
+                    self.device_id,
+                    address,
+                    mask,
+                    value,
+                    err,
+                )
+                raise HomeAssistantError(
+                    f"Failed to update field at register {address}: {err}"
+                ) from err
+
     async def _bind_message_ids(self, sub_device, additional_ids=None):
         final_ids = sub_device.get_final_message_ids(additional_ids)
+        try:
+            sub_device.validate_binding_count(len(final_ids))
+        except ValueError as err:
+            _LOGGER.error("Message ID binding rejected: %s", err)
+            raise ServiceValidationError(str(err)) from err
         base = sub_device.messageIdBindingRegisterOffset
         if base is None or sub_device.readMessageIdRegisterOffset is None:
             raise ServiceValidationError(
@@ -174,6 +236,10 @@ class SamsungModbusCoordinator(DataUpdateCoordinator):
     async def async_write_fsv(
         self, unit_name: str, message_id: int, value: int
     ) -> bool:
+        return await self.async_write_fsvs(unit_name, [(message_id, value)])
+
+    async def async_write_fsvs(self, unit_name, settings) -> bool:
+        """Validate all settings first, then serialize the entire sequence."""
         sub_device = next(
             (
                 sd
@@ -186,25 +252,53 @@ class SamsungModbusCoordinator(DataUpdateCoordinator):
             raise ServiceValidationError(
                 f"Target unit {unit_name!r} not found in template"
             )
-        # The entire bind/wait/write transaction must be atomic. A second FSV
-        # otherwise rebinds the temporary slot while the first write is sleeping.
+        for message_id, value in settings:
+            if type(value) is not int or not 0 <= value <= 65535:
+                raise ServiceValidationError(
+                    "FSV values must be unsigned 16-bit integers"
+                )
+            if type(message_id) is not int or not 0 <= message_id <= 65535:
+                raise ServiceValidationError(
+                    "FSV message IDs must be unsigned 16-bit integers"
+                )
+            try:
+                sub_device.validate_binding_count(
+                    len(sub_device.get_final_message_ids([message_id]))
+                )
+            except ValueError as err:
+                _LOGGER.error("Message ID binding rejected: %s", err)
+                raise ServiceValidationError(str(err)) from err
+            if sub_device.messageIdBindingRegisterOffset is None:
+                raise ServiceValidationError(
+                    "FSV writes require message ID binding offsets"
+                )
+        # Reuse one temporary slot. Hold the lock across all settings so reads
+        # and other actions cannot interleave with a partially written curve.
         async with self._io_lock:
-            final_ids = await self._bind_message_ids(sub_device, [message_id])
-            address = sub_device.readMessageIdRegisterOffset + final_ids.index(
-                message_id
-            )
-            await asyncio.sleep(1.0)
-            await self._write_register(address, value, sub_device)
-            if message_id in sub_device.messageIds:
-                timeout = self.entry.options.get(CONF_SCAN_INTERVAL, 30)
-                self._apply_pending_write(address, value, sub_device, timeout)
-        _LOGGER.info(
-            "Modbus accepted FSV message ID %s, value %s for %s (register %s)",
-            message_id,
-            value,
-            sub_device.name,
-            address,
-        )
+            for index, (message_id, value) in enumerate(settings):
+                try:
+                    final_ids = await self._bind_message_ids(sub_device, [message_id])
+                    address = sub_device.readMessageIdRegisterOffset + final_ids.index(
+                        message_id
+                    )
+                    await asyncio.sleep(1.0)
+                    await self._write_register(address, value, sub_device)
+                    if message_id in sub_device.messageIds:
+                        timeout = self.entry.options.get(CONF_SCAN_INTERVAL, 30)
+                        self._apply_pending_write(address, value, sub_device, timeout)
+                except HomeAssistantError as err:
+                    raise HomeAssistantError(
+                        f"FSV sequence stopped at message ID {message_id}: "
+                        f"{index} of {len(settings)} writes accepted; earlier writes "
+                        f"have not been rolled back. {err}"
+                    ) from err
+                _LOGGER.info(
+                    "Modbus accepted FSV message ID %s, value %s for %s (register %s)",
+                    message_id,
+                    value,
+                    sub_device.name,
+                    address,
+                )
         return True
 
     async def _async_update_data(self):

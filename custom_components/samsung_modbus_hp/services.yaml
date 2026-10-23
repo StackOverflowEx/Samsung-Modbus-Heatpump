@@ -2,18 +2,14 @@ set_field_setting_value:
   name: "Set Field Setting Value (FSV)"
   description: "Dynamically binds a message ID and writes a new Field Setting Value to the heat pump."
   fields:
-    entry_id:
-      name: Configuration entry
-      description: Required when multiple configured heat pumps contain the same unit name.
-      selector:
-        config_entry:
-          integration: samsung_modbus_hp
-    unit_name:
-      name: "Unit Name"
-      description: "The name of the heat pump unit to target (e.g., 'Tank Integrated Hydro Unit')."
+    device_id:
+      name: Device
+      description: Select the heat pump unit to configure.
       required: true
       selector:
-        text:
+        device:
+          filter:
+            integration: samsung_modbus_hp
     fsv_code:
       name: "FSV Code"
       description: "The FSV code you want to change (e.g., '2011')."
@@ -30,6 +26,84 @@ set_field_setting_value:
           min: 0
           max: 65535
           step: 1
+
+set_heating_curve:
+  name: Set Heating Curve
+  description: >-
+    Set the four temperature endpoints of a heating or cooling water-law curve.
+    WARNING: outdoor temperatures are shared by BOTH Heating curves or BOTH Cooling curves.
+    Heating above 65°C is supported only by some models (maximum 65, 70 or 75°C).
+    Do not set Cooling 1 below 16°C for underfloor cooling due to condensation.
+    Heating must have a falling curve. Flat or rising cooling curves are allowed with a log warning; they do not provide dew-point protection.
+    This action edits the curve; it does not select the active curve or change operating mode.
+  fields:
+    device_id:
+      name: Device
+      description: Select the heat pump unit to configure.
+      required: true
+      selector:
+        device:
+          filter:
+            integration: samsung_modbus_hp
+    curve:
+      name: Heating or cooling curve
+      required: true
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: Heating 1
+              value: heating_1
+            - label: Heating 2
+              value: heating_2
+            - label: Cooling 1
+              value: cooling_1
+            - label: Cooling 2
+              value: cooling_2
+    outdoor_temperature_lower:
+      name: Lower outdoor temperature
+      description: "Heating: -20 to 5°C. Cooling: 25 to 35°C. Affects both curves of the selected mode."
+      required: true
+      selector:
+        number:
+          min: -20
+          max: 35
+          step: 1
+          mode: box
+          unit_of_measurement: °C
+    outdoor_temperature_upper:
+      name: Upper outdoor temperature
+      description: "Heating: 10 to 20°C. Cooling: 35 to 45°C. Must exceed lower outdoor temperature. Affects both curves of the selected mode."
+      required: true
+      selector:
+        number:
+          min: 10
+          max: 45
+          step: 1
+          mode: box
+          unit_of_measurement: °C
+    water_temperature_at_upper_outdoor:
+      name: Water outlet temperature at upper outdoor endpoint
+      description: "Water temperature at the UPPER outdoor endpoint. Heating: 17 to 75°C; above 65°C only on supported models. Cooling: 5 to 25°C; at least 16°C for underfloor Cooling 1."
+      required: true
+      selector:
+        number:
+          min: 5
+          max: 75
+          step: 1
+          mode: box
+          unit_of_measurement: °C
+    water_temperature_at_lower_outdoor:
+      name: Water outlet temperature at lower outdoor endpoint
+      description: "Water temperature at the LOWER outdoor endpoint. Heating: 17 to 75°C; above 65°C only on supported models. Cooling: 5 to 25°C. Heating requires this to be strictly higher than the water temperature at the upper outdoor endpoint. Cooling allows equal or lower values with a log warning."
+      required: true
+      selector:
+        number:
+          min: 5
+          max: 75
+          step: 1
+          mode: box
+          unit_of_measurement: °C
 
 reload:
   name: Reload configuration

@@ -111,9 +111,9 @@ For registers that can be negative, add `signed: true` to their YAML definition.
 
 Custom templates also need `signed: true` on their temperature definitions; reload after editing them. Signed number controls encode negative values back into the unsigned Modbus word, including optimistic readback. Their raw signed range is `-32768`–`32767`; the template's `min` and `max` still define the allowed setpoint range. The FSV action continues to accept raw unsigned words.
 
-### Binary sensor masks
+### Register masks
 
-Use `masks` to create several binary sensors from one register. Masks are only supported with `platform: binary_sensor`:
+Use `masks` to expose multiple fields of one register. Each field can specify `platform: binary_sensor`, `switch`, or `number`. A platform on the parent remains the default for its fields, so existing binary-sensor templates keep working:
 
 ```yaml
 - name: Communication Status
@@ -154,7 +154,7 @@ Use `invert: true` when the output is ON while the selected bit is clear. For th
 | 2 | ON | OFF |
 | 3 | OFF | OFF |
 
-Alternatively, use `mask` and optional `invert` directly on a binary sensor definition. Multiple definitions may share a `messageId` or fixed `address`; give each entity a distinct name:
+Alternatively, use `mask` directly on a `binary_sensor`, `switch`, or `number` definition. Boolean fields also support `invert`. Multiple definitions may share a `messageId` or fixed `address`; give each entity a distinct name:
 
 ```yaml
 - name: Zone 1 Valve
@@ -169,7 +169,50 @@ Alternatively, use `mask` and optional `invert` directly on a binary sensor defi
   invert: true
 ```
 
-Repeated message IDs share one binding and register address per device. Unique IDs are bound in order of first appearance. Masks cannot be combined with `bits` or `mapping` on the same definition; existing `bits` definitions remain supported. The included template now exposes Communication Status as four binary sensors instead of one text summary; an old summary entity can be removed from the entity registry after updating.
+Repeated message IDs share one binding and register address per device. Unique IDs are bound in order of first appearance. Masks cannot be combined with `mapping` on the same definition.
+
+The included template exposes Modbus Module Error Status as three individual error sensors plus an `Any` summary binary sensor, and Communication Status as four binary sensors. Unsupported register options are rejected during template loading.
+
+### Frequency Response Control
+
+The included tank-integrated hydro unit template exposes message ID `0x42F1` as an enable switch and a frequency ratio number. The MIM-B19N manual (page 18) specifies **byte 1 / upper byte** for enable (`0` or `1`) and **byte 0 / lower byte** for the ratio (`50`–`150%`):
+
+```yaml
+- name: Frequency Response Control
+  messageId: 0x42F1
+  masks:
+    - name: Enabled
+      platform: switch
+      mask: 0xFF00
+    - name: Frequency Ratio
+      platform: number
+      mask: 0x00FF
+      min: 50
+      max: 150
+      step: 1
+      unit_of_measurement: "%"
+      mode: box
+```
+
+This creates **Frequency Response Control Enabled** and **Frequency Response Control Frequency Ratio**, sharing one custom-register slot. This function is documented for tank-integrated hydro units only.
+
+Writable masks must select contiguous bits and use unsigned values. The integration automatically shifts the field into and out of its position before applying a number's `scale`. A switch writes `0` or `1` into its field. For example, enabled at 80% is `0x0150`; disabling writes `0x0050`, preserving the ratio.
+
+Field writes run as a serialized read/modify/write operation. The integration reads the register before updating it, or uses a pending accepted write while waiting for delayed device readback. It preserves the other field, rejects invalid reads and out-of-range values, and updates both entities after an accepted write. Concurrent writes within this integration are serialized; changes made by an external controller between reading and writing cannot be made atomic by this mechanism.
+
+### Custom register boundaries
+
+The integration enforces the MIM-B19N address layout:
+
+| Device | Binding start | Custom data addresses | Maximum unique message IDs |
+| --- | --- | --- | --- |
+| Outdoor | `6000` | `4`–`49` | **46** |
+| Indoor unit 0 | `7000` | `82`–`99` | **18** |
+| Indoor unit n (0–47) | `7000` | `82 + 50n` through `99 + 50n` | **18** |
+
+An oversized template or incorrect binding/read offset fails setup with a contextual error. Fixed-address entries in a device with configured binding offsets must also stay inside that device's 50-address block. Repeated message IDs and multiple masked entities count as one slot.
+
+The same check applies **before** a dynamic FSV binding is sent. If an FSV's message ID is not already bound, one free slot is required. A full binding list can still write an FSV whose message ID is already present. The generic Modbus limit of 123 registers per binding request does not override these smaller device limits.
 
 ### Reload after editing YAML
 
@@ -190,16 +233,67 @@ Run **Samsung Heatpump Modbus: Set Field Setting Value (FSV)** from **Developer 
 
 | Field | Meaning |
 | --- | --- |
-| `unit_name` | Device name from the template, such as `Tank Integrated Hydro Unit` |
+| `device_id` | Select the target unit from the device dropdown |
 | `fsv_code` | FSV number, such as `2011`, listed in [`fsv_mapping.json`](custom_components/samsung_modbus_hp/fsv_mapping.json) |
 | `value` | Raw unsigned 16-bit register value (`0`–`65535`) |
-| `entry_id` | Optional configuration entry; required when the unit name matches multiple installations |
 
-The action editor lets you select the configuration entry. Unit name matching ignores case. The FSV mapping is read for each call, so JSON edits take effect on the next call.
+The device dropdown resolves the unit and configuration entry automatically, even when two installations use the same unit name or you rename a device in Home Assistant. A device selection is required. The FSV mapping is read for each call, so JSON edits take effect on the next call.
 
 **Check the service documentation for your exact heat pump before changing an FSV.** Values are sent raw, without unit conversion or validation of the FSV's model-specific range. Use the encoding and allowed range specified for that setting.
 
 An unknown FSV code, invalid value, missing unit, ambiguous target, failed binding, or rejected Modbus write raises a visible Home Assistant action error and is logged. A successful action means the Modbus write was accepted; it does not independently verify that the heat pump applied the setting.
+
+## Set a heating or cooling curve
+
+Run **Samsung Heatpump Modbus: Set Heating Curve**, select the device, then choose **Heating 1**, **Heating 2**, **Cooling 1**, or **Cooling 2**. Enter the lower and upper outdoor temperatures and the water outlet temperature at each outdoor endpoint in whole °C. Negative outdoor temperatures are encoded automatically.
+
+**Outdoor endpoints are shared:** changing either Heating curve changes the outdoor endpoints of **both Heating curves**. Changing either Cooling curve similarly affects **both Cooling curves**. The selected curve's water endpoints are independent.
+
+| Curve | Outdoor lower / upper FSV | Water FSV at lower / upper outdoor endpoint | Outdoor lower / upper range | Water range |
+| --- | --- | --- | --- | --- |
+| Heating 1 | 2011 / 2012 | 2021 / 2022 | −20–5°C / 10–20°C | 17–75°C* |
+| Heating 2 | 2011 / 2012 | 2031 / 2032 | −20–5°C / 10–20°C | 17–75°C* |
+| Cooling 1 | 2051 / 2052 | 2061 / 2062 | 25–35°C / 35–45°C | 5–25°C |
+| Cooling 2 | 2051 / 2052 | 2071 / 2072 | 25–35°C / 35–45°C | 5–25°C |
+
+*The heating maximum is **65, 70 or 75°C depending on the outdoor unit**. Values above 65°C require a compatible model; the action displays and logs a warning but cannot determine your model's limit. The manual also warns against **Cooling 1 below 16°C for underfloor cooling** because of condensation.
+
+The lower outdoor temperature must be strictly below the upper one. **Heating curves must fall strictly:** `2021 > 2022` for Heating 1 and `2031 > 2032` for Heating 2. Equal or reversed heating water endpoints are rejected before any writes.
+
+Cooling normally also falls (`2061 > 2062` or `2071 > 2072`). Equal or reversed cooling endpoints are allowed with a warning in Home Assistant's logs, without swapping the values. The input names identify the outdoor endpoints, so `water_temperature_at_lower_outdoor` always writes `2061/2071`, even when its value is numerically lower. Model support for reversed curves is not verified.
+
+A rising cooling curve is not condensation protection: indoor air temperature and humidity determine the indoor dew point. Raising the water temperature when that dew point rises can help, but outdoor temperature alone is not sufficient. Dew-point control should keep chilled surfaces above the room dew point or stop cooling when necessary ([ASHRAE: Radiant Heating and Cooling](https://handbook.ashrae.org/Handbooks/A19/SI/a19_ch55/A19_Ch55_si.aspx)).
+
+```yaml
+action: samsung_modbus_hp.set_heating_curve
+data:
+  device_id: YOUR_HOME_ASSISTANT_DEVICE_ID
+  curve: heating_1
+  outdoor_temperature_lower: -10
+  outdoor_temperature_upper: 15
+  water_temperature_at_upper_outdoor: 25
+  water_temperature_at_lower_outdoor: 40
+```
+
+All four values, mapping entries and register capacity are checked before writing. The sequence reuses one temporary register slot and prevents other Modbus operations from interleaving. Hardware writes remain sequential: if one fails, the action stops and reports the number of accepted writes; earlier writes are not rolled back. Success confirms Modbus acceptance, not independent heat-pump readback. This action edits the curve without changing the active curve selection or heating/cooling mode.
+
+### Use actions in automations and scripts
+
+All integration actions are available in automation and script editors through **Add action → Perform action**. Select **Set Heating Curve**, **Set Field Setting Value (FSV)**, or **Reload configuration** and fill in the same fields used in Developer tools. For example, the actions section of an automation can contain:
+
+```yaml
+actions:
+  - action: samsung_modbus_hp.set_heating_curve
+    data:
+      device_id: YOUR_HOME_ASSISTANT_DEVICE_ID
+      curve: heating_1
+      outdoor_temperature_lower: -10
+      outdoor_temperature_upper: 15
+      water_temperature_at_lower_outdoor: 40
+      water_temperature_at_upper_outdoor: 25
+```
+
+Use the device picker to populate the device ID. The same validation and warnings apply when called from automations or scripts.
 
 ## Troubleshooting
 
@@ -254,4 +348,4 @@ Tests exercise real Home Assistant entity and service classes with mocked Modbus
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -p pytest_asyncio.plugin -q tests
 ```
 
-Coverage includes service errors, device addressing, concurrent FSV writes, invalid/incomplete responses, optimistic write confirmation, sensor mappings, template parsing, and reload actions.
+Coverage includes device-picker targeting and action schemas, heating/cooling FSV mappings, temperature limits and curve slope checks, signed curve encoding, shared-endpoint warnings, concurrent and partially failed FSV sequences, register boundaries, masked entities and writes, and template parsing. Modbus responses are mocked; tests do not operate a physical heat pump.

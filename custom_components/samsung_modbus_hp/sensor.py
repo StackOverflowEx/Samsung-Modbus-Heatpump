@@ -5,14 +5,8 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.const import EntityCategory
 
 from .const import DOMAIN
-from .entity import SamsungModbusEntity, async_setup_platform_entry, BitExtractorMixin
+from .entity import SamsungModbusEntity, async_setup_platform_entry
 from .utils import calculate_display_precision, extract_options_from_mapping
-
-
-def sensor_factory(coordinator, sub_device, reg, entry_id):
-    if "bits" in reg:
-        return [SamsungModbusBitListSensor(coordinator, sub_device, reg, entry_id)]
-    return [SamsungModbusSensor(coordinator, sub_device, reg, entry_id)]
 
 
 async def async_setup_entry(
@@ -47,7 +41,7 @@ async def async_setup_entry(
 
     # Setup standard sensors
     await async_setup_platform_entry(
-        hass, entry, async_add_entities, "sensor", None, sensor_factory
+        hass, entry, async_add_entities, "sensor", SamsungModbusSensor
     )
 
 
@@ -122,12 +116,3 @@ class SamsungModbusSensor(SamsungModbusEntity, SensorEntity):
             )
 
         return raw_val
-
-
-class SamsungModbusBitListSensor(BitExtractorMixin, SamsungModbusEntity, SensorEntity):
-    @property
-    def native_value(self):
-        if self._get_raw_value() is None:
-            return None
-        active_bits = [bit["name"] for bit in self._get_active_bits()]
-        return ", ".join(active_bits) if active_bits else "OK"
