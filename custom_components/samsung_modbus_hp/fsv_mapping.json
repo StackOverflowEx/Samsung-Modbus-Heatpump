@@ -1,73 +1,675 @@
 {
-  "1011": 16970,
-  "1012": 16971,
-  "1021": 16972,
-  "1022": 16973,
-  "1031": 16974,
-  "1032": 16975,
-  "1041": 16976,
-  "1042": 16977,
-  "1051": 16978,
-  "1052": 16979,
-  "2011": 16980,
-  "2012": 16981,
-  "2021": 16982,
-  "2022": 16983,
-  "2031": 16984,
-  "2032": 16985,
-  "2051": 16986,
-  "2052": 16987,
-  "2061": 16988,
-  "2062": 16989,
-  "2071": 16990,
-  "2072": 16991,
-  "3021": 16992,
-  "3022": 16993,
-  "3023": 16994,
-  "3024": 16995,
-  "3025": 16996,
-  "3026": 16997,
-  "3032": 16998,
-  "3033": 16999,
-  "3034": 17000,
-  "3043": 17001,
-  "3044": 17002,
-  "3045": 17003,
-  "3052": 17004,
-  "4012": 17005,
-  "4013": 17006,
-  "4014": 17007,
-  "4024": 17008,
-  "4025": 17009,
-  "4033": 17010,
-  "5011": 17011,
-  "5012": 17012,
-  "5013": 17013,
-  "5014": 17014,
-  "5015": 17015,
-  "5016": 17016,
-  "5017": 17017,
-  "5018": 17018,
-  "5019": 17019,
-  "5021": 17020,
-  "5031": 17021,
-  "5032": 17022,
-  "4042": 17030,
-  "4043": 17031,
-  "4045": 17032,
-  "4046": 17033,
-  "4052": 17034,
-  "3046": 17102,
-  "5082": 17115,
-  "5083": 17116,
-  "5092": 17117,
-  "5093": 17118,
-  "3081": 17133,
-  "3082": 17134,
-  "3083": 17135,
-  "5023": 17136,
-  "1061": 17182,
-  "1062": 17183,
-  "1063": 17184,
-  "1064": 17185
+  "1011": {
+    "messageId": 16970,
+    "scale": 0.1,
+    "signed": true
+  },
+  "1012": {
+    "messageId": 16971,
+    "scale": 0.1,
+    "signed": true
+  },
+  "1021": {
+    "messageId": 16972,
+    "scale": 0.1,
+    "signed": true
+  },
+  "1022": {
+    "messageId": 16973,
+    "scale": 0.1,
+    "signed": true
+  },
+  "1031": {
+    "messageId": 16974,
+    "scale": 0.1,
+    "signed": true
+  },
+  "1032": {
+    "messageId": 16975,
+    "scale": 0.1,
+    "signed": true
+  },
+  "1041": {
+    "messageId": 16976,
+    "scale": 0.1,
+    "signed": true
+  },
+  "1042": {
+    "messageId": 16977,
+    "scale": 0.1,
+    "signed": true
+  },
+  "1051": {
+    "messageId": 16978,
+    "scale": 0.1,
+    "signed": true
+  },
+  "1052": {
+    "messageId": 16979,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2011": {
+    "messageId": 16980,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2012": {
+    "messageId": 16981,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2021": {
+    "messageId": 16982,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2022": {
+    "messageId": 16983,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2031": {
+    "messageId": 16984,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2032": {
+    "messageId": 16985,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2041": {
+    "messageId": 16531,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      1,
+      2
+    ]
+  },
+  "2051": {
+    "messageId": 16986,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2052": {
+    "messageId": 16987,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2061": {
+    "messageId": 16988,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2062": {
+    "messageId": 16989,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2071": {
+    "messageId": 16990,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2072": {
+    "messageId": 16991,
+    "scale": 0.1,
+    "signed": true
+  },
+  "2081": {
+    "messageId": 16532,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      1,
+      2
+    ]
+  },
+  "2091": {
+    "messageId": 16533,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "2092": {
+    "messageId": 16534,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "2093": {
+    "messageId": 16679,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "2094": {
+    "messageId": 16682,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "3011": {
+    "messageId": 16535,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2
+    ]
+  },
+  "3021": {
+    "messageId": 16992,
+    "scale": 0.1,
+    "signed": true
+  },
+  "3022": {
+    "messageId": 16993,
+    "scale": 0.1,
+    "signed": true
+  },
+  "3023": {
+    "messageId": 16994,
+    "scale": 0.1,
+    "signed": true
+  },
+  "3024": {
+    "messageId": 16995,
+    "scale": 1,
+    "signed": false
+  },
+  "3025": {
+    "messageId": 16996,
+    "scale": 1,
+    "signed": false
+  },
+  "3026": {
+    "messageId": 16997,
+    "scale": 1,
+    "signed": false
+  },
+  "3031": {
+    "messageId": 16536,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "3032": {
+    "messageId": 16998,
+    "scale": 1,
+    "signed": false
+  },
+  "3033": {
+    "messageId": 16999,
+    "scale": 0.1,
+    "signed": true
+  },
+  "3034": {
+    "messageId": 17000,
+    "scale": 0.1,
+    "signed": true
+  },
+  "3041": {
+    "messageId": 16537,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "3042": {
+    "messageId": 16538,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "3043": {
+    "messageId": 17001,
+    "scale": 1,
+    "signed": false
+  },
+  "3044": {
+    "messageId": 17002,
+    "scale": 0.1,
+    "signed": true
+  },
+  "3045": {
+    "messageId": 17003,
+    "scale": 1,
+    "signed": true
+  },
+  "3046": {
+    "messageId": 17102,
+    "scale": 1,
+    "signed": false
+  },
+  "3051": {
+    "messageId": 16539,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "3052": {
+    "messageId": 17004,
+    "scale": 10,
+    "signed": true
+  },
+  "3061": {
+    "messageId": 16540,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "3071": {
+    "messageId": 16541,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "3081": {
+    "messageId": 17133,
+    "scale": 1,
+    "signed": true
+  },
+  "3082": {
+    "messageId": 17134,
+    "scale": 1,
+    "signed": true
+  },
+  "3083": {
+    "messageId": 17135,
+    "scale": 1,
+    "signed": true
+  },
+  "4011": {
+    "messageId": 16542,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "4012": {
+    "messageId": 17005,
+    "scale": 0.1,
+    "signed": true
+  },
+  "4013": {
+    "messageId": 17006,
+    "scale": 0.1,
+    "signed": true
+  },
+  "4014": {
+    "messageId": 17007,
+    "scale": 0.1,
+    "signed": true
+  },
+  "4021": {
+    "messageId": 16543,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2
+    ]
+  },
+  "4022": {
+    "messageId": 16544,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2
+    ]
+  },
+  "4023": {
+    "messageId": 16545,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "4024": {
+    "messageId": 17008,
+    "scale": 0.1,
+    "signed": true
+  },
+  "4025": {
+    "messageId": 17009,
+    "scale": 0.1,
+    "signed": true
+  },
+  "4031": {
+    "messageId": 16546,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "4032": {
+    "messageId": 16547,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "4033": {
+    "messageId": 17010,
+    "scale": 0.1,
+    "signed": true
+  },
+  "4041": {
+    "messageId": 16576,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2
+    ]
+  },
+  "4042": {
+    "messageId": 17030,
+    "scale": 0.1,
+    "signed": false
+  },
+  "4043": {
+    "messageId": 17031,
+    "scale": 0.1,
+    "signed": false
+  },
+  "4044": {
+    "messageId": 16577,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "4045": {
+    "messageId": 17032,
+    "scale": 1,
+    "signed": false
+  },
+  "4046": {
+    "messageId": 17033,
+    "scale": 10,
+    "signed": false
+  },
+  "4051": {
+    "messageId": 16578,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2
+    ]
+  },
+  "4052": {
+    "messageId": 17034,
+    "scale": 0.1,
+    "signed": false
+  },
+  "4053": {
+    "messageId": 16579,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "4061": {
+    "messageId": 16666,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "5011": {
+    "messageId": 17011,
+    "scale": 0.1,
+    "signed": true
+  },
+  "5012": {
+    "messageId": 17012,
+    "scale": 0.1,
+    "signed": true
+  },
+  "5013": {
+    "messageId": 17013,
+    "scale": 0.1,
+    "signed": true
+  },
+  "5014": {
+    "messageId": 17014,
+    "scale": 0.1,
+    "signed": true
+  },
+  "5015": {
+    "messageId": 17015,
+    "scale": 0.1,
+    "signed": true
+  },
+  "5016": {
+    "messageId": 17016,
+    "scale": 0.1,
+    "signed": true
+  },
+  "5017": {
+    "messageId": 17017,
+    "scale": 0.1,
+    "signed": true
+  },
+  "5018": {
+    "messageId": 17018,
+    "scale": 0.1,
+    "signed": true
+  },
+  "5019": {
+    "messageId": 17019,
+    "scale": 0.1,
+    "signed": true
+  },
+  "5021": {
+    "messageId": 17020,
+    "scale": 0.1,
+    "signed": true
+  },
+  "5022": {
+    "messageId": 16680,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "5023": {
+    "messageId": 17136,
+    "scale": 0.1,
+    "signed": true
+  },
+  "5031": {
+    "messageId": 17021,
+    "scale": 1,
+    "signed": false
+  },
+  "5032": {
+    "messageId": 17022,
+    "scale": 1,
+    "signed": false
+  },
+  "5033": {
+    "messageId": 16647,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "5041": {
+    "messageId": 16548,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "5042": {
+    "messageId": 16549,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "5043": {
+    "messageId": 16550,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "5051": {
+    "messageId": 16551,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "5061": {
+    "messageId": 16564,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "5081": {
+    "messageId": 16667,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "5082": {
+    "messageId": 17115,
+    "scale": 0.1,
+    "signed": false
+  },
+  "5083": {
+    "messageId": 17116,
+    "scale": 0.1,
+    "signed": false
+  },
+  "5091": {
+    "messageId": 16668,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  },
+  "5092": {
+    "messageId": 17117,
+    "scale": 0.1,
+    "signed": false
+  },
+  "5093": {
+    "messageId": 17118,
+    "scale": 0.1,
+    "signed": false
+  },
+  "5094": {
+    "messageId": 16669,
+    "scale": 1,
+    "signed": false,
+    "options": [
+      0,
+      1
+    ]
+  }
 }

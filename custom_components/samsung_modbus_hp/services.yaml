@@ -18,14 +18,20 @@ set_field_setting_value:
         text:
     value:
       name: "Value"
-      description: "The new raw value to write to the FSV."
+      description: "Numeric FSVs use user units and NASA.ptc scaling. Enum FSVs accept a numeric option from the valid options in fsv_mapping.json."
       required: true
       selector:
         number:
           mode: box
-          min: 0
-          max: 65535
-          step: 1
+          min: -327680
+          max: 655350
+          step: any
+    disable_postprocessing:
+      name: Disable postprocessing
+      description: "By default, numeric values are scaled and enum values are checked against valid options. Check to skip scaling and enum validation and send an integer raw value. Register limits and signed encoding still apply."
+      default: false
+      selector:
+        boolean:
 
 set_heating_curve:
   name: Set Heating Curve
@@ -37,6 +43,12 @@ set_heating_curve:
     Heating must have a falling curve. Flat or rising cooling curves are allowed with a log warning; they do not provide dew-point protection.
     This action edits the curve; it does not select the active curve or change operating mode.
   fields:
+    disable_postprocessing:
+      name: Disable postprocessing
+      description: "Postprocessing scales numeric FSVs or validates enum options. Check to bypass it. Curve inputs and sanity checks remain in whole °C, and signed encoding still applies."
+      default: false
+      selector:
+        boolean:
     device_id:
       name: Device
       description: Select the heat pump unit to configure.

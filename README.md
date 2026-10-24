@@ -131,13 +131,16 @@ Available in **Developer tools → Actions**, automations, and scripts (**Add ac
 | --- | --- | --- | --- |
 | `device_id` | device | ✅ | Select the target unit from the dropdown. |
 | `fsv_code` | string/integer | ✅ | Code from [fsv_mapping.json](custom_components/samsung_modbus_hp/fsv_mapping.json), e.g. `2011`. |
-| `value` | integer | ✅ | Raw unsigned register value, `0–65535`. |
+| `value` | number | ✅ | Numeric FSV: user units. Enum FSV: one of the numeric `options` in the mapping. |
+| `disable_postprocessing` | boolean | No | Default `false`. Check to skip numeric scaling and enum validation; send an integer raw value. |
 
-Values are sent without scaling or model-specific range checks. Check your heat pump's manual before writing.
+Postprocessing scales numeric values (`user value = raw × scale`) or checks enum options. For FSV **4052**, input **5** writes **50**; with postprocessing disabled it writes **5**. For enum **2041**, only **1** or **2** is accepted by default. Signed encoding and register limits always apply; model-specific numeric FSV ranges are not checked.
+
+Regenerate all `*IN_FSV_xxxx` codes, including commented definitions, with `python scripts/update_fsv_mapping.py /path/to/NASA.ptc`. Enum `options` come from items or ranges; when neither is specified (e.g. FSV **5061**), options default to **0 and 1**. Codes absent from the source are removed.
 
 ### Set Heating Curve — `samsung_modbus_hp.set_heating_curve`
 
-All temperatures are whole °C; negative values are encoded automatically.
+All temperatures are whole °C and are scaled automatically (e.g. `40°C → 400`); negative values are encoded after scaling.
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -147,6 +150,7 @@ All temperatures are whole °C; negative values are encoded automatically.
 | `outdoor_temperature_upper` | integer | ✅ | Heating: `10–20`; cooling: `35–45`; must exceed the lower endpoint. |
 | `water_temperature_at_lower_outdoor` | integer | ✅ | Water temperature at the lower outdoor endpoint. Heating: `17–75`; cooling: `5–25`. |
 | `water_temperature_at_upper_outdoor` | integer | ✅ | Water temperature at the upper outdoor endpoint. Same ranges as above. |
+| `disable_postprocessing` | boolean | No | Default `false`. Skip FSV scaling/enum checks; curve sanity checks and signed encoding still apply. |
 
 - **Outdoor endpoints affect both curves of the selected mode.** Water endpoints affect only the selected curve; the action does not change the active curve or operating mode.
 - Heating must slope down: `2021 > 2022` / `2031 > 2032`. Flat or rising cooling curves are allowed with a log warning; hardware support is not verified.

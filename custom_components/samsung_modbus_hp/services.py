@@ -3,6 +3,8 @@
 import json
 import logging
 import os
+from decimal import Decimal, DecimalException, Inexact, InvalidOperation, localcontext
+import math
 
 import aiofiles
 import voluptuous as vol
@@ -51,6 +53,95 @@ def _integer(value, name, lower, upper):
     return result
 
 
+def _validate_fsv_mapping(mapping):
+    """Scale is the multiplier from raw protocol units to user units."""
+    if not isinstance(mapping, dict) or not mapping:
+        raise ValueError("Expected a non-empty object of FSV definitions")
+    for code, definition in mapping.items():
+        required = {
+            "messageId",
+            "scale",
+            "signed",
+        }
+        if (
+            not isinstance(definition, dict)
+            or not required <= definition.keys()
+            or set(definition) - (required | {"options"})
+        ):
+            raise ValueError(f"FSV {code} requires messageId, scale and signed")
+        message_id = definition["messageId"]
+        if type(message_id) is not int or not 0 <= message_id <= 65535:
+            raise ValueError(f"Invalid messageId for FSV {code}")
+        scale, signed = definition["scale"], definition["signed"]
+        if (
+            type(scale) not in (int, float)
+            or not math.isfinite(scale)
+            or scale <= 0
+            or type(signed) is not bool
+        ):
+            raise ValueError(f"Invalid scale or signed flag for FSV {code}")
+        if "options" in definition:
+            options = definition["options"]
+            if (
+                not isinstance(options, list)
+                or any(
+                    type(value) is not int or not 0 <= value <= 65535
+                    for value in options
+                )
+                or len(options) != len(set(options))
+                or scale != 1
+                or signed
+            ):
+                raise ValueError(f"Invalid enum options for FSV {code}")
+    return mapping
+
+
+def _encode_fsv_value(value, definition, disable_postprocessing=False):
+    """Convert user units to an exact 16-bit word, without silent rounding."""
+    try:
+        if isinstance(value, bool):
+            raise ValueError
+        numeric = Decimal(str(value))
+        if not numeric.is_finite():
+            raise ValueError
+    except (InvalidOperation, ValueError) as err:
+        raise ServiceValidationError("FSV value must be a finite number") from err
+
+    if disable_postprocessing:
+        raw = numeric
+    else:
+        try:
+            with localcontext() as context:
+                context.traps[Inexact] = True
+                raw = numeric / Decimal(str(definition["scale"]))
+        except DecimalException as err:
+            raise ServiceValidationError(
+                "FSV value cannot be converted exactly within the register range"
+            ) from err
+
+    if raw != raw.to_integral_value():
+        raise ServiceValidationError(
+            "FSV value cannot be represented as a whole register value; "
+            "check the scaling or supply a whole value when postprocessing is disabled"
+        )
+    # Raw mode also accepts an already encoded unsigned word. Negative raw
+    # inputs are allowed only when the source explicitly declares signed data.
+    signed = definition["signed"] is True
+    lower = -32768 if signed else 0
+    upper = 32767 if signed and not disable_postprocessing else 65535
+    if not lower <= raw <= upper:
+        raise ServiceValidationError(
+            f"FSV value is outside its register range after conversion ({lower} to {upper})"
+        )
+    if not disable_postprocessing and "options" in definition:
+        options = definition["options"] or [0, 1]
+        if int(raw) not in options:
+            raise ServiceValidationError(
+                f"Invalid enum FSV value {value!r}; valid options: {', '.join(map(str, options))}"
+            )
+    return int(raw) & 0xFFFF
+
+
 def _resolve_unit(hass, data):
     """Resolve exactly one loaded unit using its Home Assistant device ID."""
     device_id = data["device_id"]
@@ -77,13 +168,7 @@ async def load_fsv_mapping():
     try:
         async with aiofiles.open(path, mode="r", encoding="utf-8") as file:
             mapping = json.loads(await file.read())
-        if not isinstance(mapping, dict) or not all(
-            type(value) is int and 0 <= value <= 65535 for value in mapping.values()
-        ):
-            raise ValueError(
-                "Expected an object mapping FSV codes to integer message IDs from 0 to 65535"
-            )
-        return mapping
+        return _validate_fsv_mapping(mapping)
     except (OSError, ValueError) as err:
         raise HomeAssistantError(f"Cannot load FSV mapping {path}: {err}") from err
 
@@ -114,15 +199,18 @@ async def async_setup_services(hass: HomeAssistant):
         try:
             if not fsv_code:
                 raise ServiceValidationError("fsv_code is required")
-            value = _integer(raw_value, "value", 0, 65535)
             mapping = await load_fsv_mapping()
             if fsv_code not in mapping:
                 raise ServiceValidationError(
                     f"FSV code {fsv_code!r} not found in fsv_mapping.json"
                 )
+            definition = mapping[fsv_code]
+            value = _encode_fsv_value(
+                raw_value, definition, call.data["disable_postprocessing"]
+            )
             coordinator, sub_device = _resolve_unit(hass, call.data)
             unit_name = sub_device.name
-            await coordinator.async_write_fsv(unit_name, mapping[fsv_code], value)
+            await coordinator.async_write_fsv(unit_name, definition["messageId"], value)
         except HomeAssistantError as err:
             _LOGGER.error(
                 "FSV write failed (unit %r, device %r, FSV %r, value %r): %s",
@@ -134,7 +222,12 @@ async def async_setup_services(hass: HomeAssistant):
             )
             raise
         _LOGGER.info(
-            "FSV %s write accepted for %s (raw value %s)", fsv_code, unit_name, value
+            "FSV %s write accepted for %s (input %s, raw value %s, postprocessing %s)",
+            fsv_code,
+            unit_name,
+            raw_value,
+            value,
+            not call.data["disable_postprocessing"],
         )
 
     async def handle_set_heating_curve(call: ServiceCall):
@@ -169,6 +262,15 @@ async def async_setup_services(hass: HomeAssistant):
                 raise ServiceValidationError(
                     f"FSV codes missing from fsv_mapping.json: {', '.join(missing)}"
                 )
+            settings = [
+                (
+                    mapping[code]["messageId"],
+                    _encode_fsv_value(
+                        value, mapping[code], call.data["disable_postprocessing"]
+                    ),
+                )
+                for code, value in zip(codes, temperatures, strict=True)
+            ]
             coordinator, sub_device = _resolve_unit(hass, call.data)
             _LOGGER.warning(
                 "Setting %s for %s: outdoor endpoints affect BOTH %s curves",
@@ -199,14 +301,7 @@ async def async_setup_services(hass: HomeAssistant):
                     water_at_cold,
                     water_at_warm,
                 )
-            # Modbus carries unsigned words, including signed outdoor temperatures.
-            await coordinator.async_write_fsvs(
-                sub_device.name,
-                [
-                    (mapping[code], value & 0xFFFF)
-                    for code, value in zip(codes, temperatures, strict=True)
-                ],
-            )
+            await coordinator.async_write_fsvs(sub_device.name, settings)
         except HomeAssistantError as err:
             _LOGGER.error(
                 "Setting curve %s for device %r failed: %s",
@@ -241,6 +336,7 @@ async def async_setup_services(hass: HomeAssistant):
                 vol.Required("device_id"): str,
                 vol.Required("fsv_code"): vol.Any(str, int),
                 vol.Required("value"): object,
+                vol.Optional("disable_postprocessing", default=False): bool,
             }
         ),
     )
@@ -252,6 +348,7 @@ async def async_setup_services(hass: HomeAssistant):
             {
                 vol.Required("device_id"): str,
                 vol.Required("curve"): vol.In(CURVE_CODES),
+                vol.Optional("disable_postprocessing", default=False): bool,
                 **{vol.Required(field): object for field in TEMPERATURE_FIELDS},
             }
         ),
