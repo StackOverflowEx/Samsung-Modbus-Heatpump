@@ -186,6 +186,19 @@ class SubDeviceTemplate:
             "expected 6000/4 or 7000/(82 + 50 × indoor unit index 0–47)"
         )
 
+    def validate_fsv_capacity(self):
+        """FSV actions always require one slot beyond the configured bindings."""
+        if self.messageIdBindingRegisterOffset is None:
+            raise ValueError(f"FSV writes require binding offsets for {self.name}")
+        start, end = self.binding_data_bounds()
+        capacity = end - start + 1
+        if len(self.messageIds) >= capacity:
+            raise ValueError(
+                f"FSV actions are unavailable for {self.name}: all {capacity} custom "
+                "register slots are used. Remove at least one message ID from the "
+                f"template (use at most {capacity - 1}) to leave a temporary FSV slot"
+            )
+
     def validate_binding_count(self, count):
         """Also called before dynamic FSV bindings, before any hardware write."""
         if count == 0 and self.messageIdBindingRegisterOffset is None:

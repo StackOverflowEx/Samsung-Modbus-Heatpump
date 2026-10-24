@@ -69,6 +69,12 @@ class SamsungModbusCoordinator(DataUpdateCoordinator):
             raise ConfigEntryError(
                 f"Cannot load device template {filename}: {err}"
             ) from err
+        for sub_device in self.device_template.sub_devices:
+            if sub_device.messageIdBindingRegisterOffset is not None:
+                try:
+                    sub_device.validate_fsv_capacity()
+                except ValueError as err:
+                    _LOGGER.warning("%s", err)
         try:
             if not await self.client.connect():
                 raise ModbusException("Connection refused or timed out")
@@ -252,6 +258,11 @@ class SamsungModbusCoordinator(DataUpdateCoordinator):
             raise ServiceValidationError(
                 f"Target unit {unit_name!r} not found in template"
             )
+        try:
+            sub_device.validate_fsv_capacity()
+        except ValueError as err:
+            _LOGGER.error("FSV action rejected: %s", err)
+            raise ServiceValidationError(str(err)) from err
         for message_id, value in settings:
             if type(value) is not int or not 0 <= value <= 65535:
                 raise ServiceValidationError(
@@ -260,17 +271,6 @@ class SamsungModbusCoordinator(DataUpdateCoordinator):
             if type(message_id) is not int or not 0 <= message_id <= 65535:
                 raise ServiceValidationError(
                     "FSV message IDs must be unsigned 16-bit integers"
-                )
-            try:
-                sub_device.validate_binding_count(
-                    len(sub_device.get_final_message_ids([message_id]))
-                )
-            except ValueError as err:
-                _LOGGER.error("Message ID binding rejected: %s", err)
-                raise ServiceValidationError(str(err)) from err
-            if sub_device.messageIdBindingRegisterOffset is None:
-                raise ServiceValidationError(
-                    "FSV writes require message ID binding offsets"
                 )
         # Reuse one temporary slot. Hold the lock across all settings so reads
         # and other actions cannot interleave with a partially written curve.
