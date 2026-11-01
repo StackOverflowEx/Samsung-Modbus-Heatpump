@@ -65,6 +65,49 @@ class SubDeviceTemplate:
         self.readMessageIdRegisterOffset = self.definition.get(
             "readMessageIdRegisterOffset", None
         )
+        default_range = (
+            {"start": 0x4000, "end": 0x7FFF}
+            if self.is_indoor
+            else {"start": 0x8000, "end": 0xBFFF}
+            if self.messageIdBindingRegisterOffset == 6000
+            else None
+        )
+        self.message_id_range = self.definition.get("messageIdRange", default_range)
+        if "messageIdRange" in self.definition or self.message_id_range is not None:
+            bounds = self.message_id_range
+            if (
+                not isinstance(bounds, dict)
+                or set(bounds) != {"start", "end"}
+                or any(type(value) is not int for value in bounds.values())
+                or not 0 <= bounds["start"] <= bounds["end"] <= 0xFFFF
+            ):
+                raise ValueError(
+                    f"Invalid messageIdRange for {self.name}: expected integer start/end from 0 to 65535"
+                )
+
+    @property
+    def is_indoor(self):
+        """The MIM-B19N indoor binding area starts at 7000."""
+        return self.messageIdBindingRegisterOffset == 7000
+
+    def supports_message_id(self, message_id):
+        return self.message_id_range is None or (
+            self.message_id_range["start"] <= message_id <= self.message_id_range["end"]
+        )
+
+    def supports_fsv(self, message_id):
+        return self.is_indoor and self.supports_message_id(message_id)
+
+    def validate_fsv_message_ids(self, message_ids):
+        if not self.is_indoor:
+            raise ValueError(
+                f"FSV actions require an indoor unit; {self.name} is not an indoor unit"
+            )
+        for message_id in message_ids:
+            if not self.supports_fsv(message_id):
+                raise ValueError(
+                    f"FSV message ID {message_id:#06x} is outside messageIdRange for {self.name}"
+                )
 
     def _process_message_ids(self):
         """Process messageId definitions and convert to addresses."""
@@ -158,6 +201,10 @@ class SubDeviceTemplate:
             ):
                 raise ValueError(
                     f"Message ID register {reg['name']} in {self.name} requires binding and read offsets"
+                )
+            if "messageId" in reg and not self.supports_message_id(reg["messageId"]):
+                raise ValueError(
+                    f"Message ID for {self.name} / {reg['name']} is outside messageIdRange"
                 )
         self._process_message_ids()
         self.validate_binding_count(len(self.messageIds))

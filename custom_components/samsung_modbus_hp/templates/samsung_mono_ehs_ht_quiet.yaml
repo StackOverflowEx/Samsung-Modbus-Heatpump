@@ -9,6 +9,9 @@ devices:
     capacity_unit: kW
     bindMessageIdRegisterOffset: 6000
     readMessageIdRegisterOffset: 4
+    messageIdRange:
+      start: 0x8000
+      end: 0x8613
     registers:
       # --- Fixed Outdoor Registers ---
       - name: Modbus Module Error Status
@@ -201,6 +204,9 @@ devices:
     capacity_unit: l
     bindMessageIdRegisterOffset: 7000
     readMessageIdRegisterOffset: 82
+    messageIdRange:
+      start: 0x4000
+      end: 0x461E
     registers:
       # --- Fixed Indoor Registers ---
       - name: Communication Status

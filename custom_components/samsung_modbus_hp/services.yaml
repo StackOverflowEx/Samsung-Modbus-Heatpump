@@ -4,12 +4,12 @@ set_field_setting_value:
   fields:
     device_id:
       name: Device
-      description: Select the heat pump unit to configure.
+      description: Select a loaded indoor unit whose message ID range contains at least one FSV.
       required: true
       selector:
-        device:
-          filter:
-            integration: samsung_modbus_hp
+        select:
+          mode: dropdown
+          options: []
     fsv_code:
       name: "FSV Code"
       description: "The FSV code you want to change (e.g., '2011')."
@@ -28,6 +28,7 @@ set_field_setting_value:
           step: any
     disable_postprocessing:
       name: Disable postprocessing
+      required: true
       description: "By default, numeric values are scaled and enum values are checked against valid options. Check to skip scaling and enum validation and send an integer raw value. Register limits and signed encoding still apply."
       default: false
       selector:
@@ -45,18 +46,19 @@ set_heating_curve:
   fields:
     disable_postprocessing:
       name: Disable postprocessing
+      required: true
       description: "Postprocessing scales numeric FSVs or validates enum options. Check to bypass it. Curve inputs and sanity checks remain in whole °C, and signed encoding still applies."
       default: false
       selector:
         boolean:
     device_id:
       name: Device
-      description: Select the heat pump unit to configure.
+      description: Select a loaded indoor unit whose message ID range contains at least one FSV.
       required: true
       selector:
-        device:
-          filter:
-            integration: samsung_modbus_hp
+        select:
+          mode: dropdown
+          options: []
     curve:
       name: Heating or cooling curve
       required: true

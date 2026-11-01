@@ -8,9 +8,12 @@ import math
 
 import aiofiles
 import voluptuous as vol
+import yaml
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.const import EVENT_SERVICE_REGISTERED
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.service import async_set_service_schema
 
 from .const import DOMAIN
 
@@ -142,7 +145,7 @@ def _encode_fsv_value(value, definition, disable_postprocessing=False):
     return int(raw) & 0xFFFF
 
 
-def _resolve_unit(hass, data):
+def _resolve_unit(hass, data, message_ids):
     """Resolve exactly one loaded unit using its Home Assistant device ID."""
     device_id = data["device_id"]
     registry_device = dr.async_get(hass).async_get(device_id)
@@ -160,7 +163,53 @@ def _resolve_unit(hass, data):
         raise ServiceValidationError(
             "Select a device belonging to one loaded Samsung Modbus unit"
         )
-    return candidates[0]
+    coordinator, sub_device = candidates[0]
+    try:
+        sub_device.validate_fsv_message_ids(message_ids)
+    except ValueError as err:
+        raise ServiceValidationError(str(err)) from err
+    return coordinator, sub_device
+
+
+def _read_action_descriptions():
+    with open(
+        os.path.join(os.path.dirname(__file__), "services.yaml"), encoding="utf-8"
+    ) as file:
+        return yaml.safe_load(file)
+
+
+async def async_update_service_choices(hass):
+    """Publish exact device IDs: HA's device selector cannot filter custom ranges."""
+    descriptions = await hass.async_add_executor_job(_read_action_descriptions)
+    mapping = await load_fsv_mapping()
+    registry = dr.async_get(hass)
+    options = []
+    for entry_id, coordinator in hass.data.get(DOMAIN, {}).items():
+        for sub_device in coordinator.device_template.sub_devices:
+            if not any(
+                sub_device.supports_fsv(item["messageId"]) for item in mapping.values()
+            ):
+                continue
+            device = registry.async_get_device(
+                identifiers={(DOMAIN, f"{entry_id}_{sub_device.name}")}
+            )
+            if device is None or device.disabled_by is not None:
+                continue
+            label = device.name_by_user or device.name or sub_device.name
+            entry_label = coordinator.entry.title
+            options.append({"value": device.id, "label": f"{label} ({entry_label})"})
+    options.sort(key=lambda option: (option["label"].casefold(), option["value"]))
+    hass.data[(DOMAIN, "fsv_device_ids")] = {option["value"] for option in options}
+    for action in (SERVICE_SET_FSV, SERVICE_SET_HEATING_CURVE):
+        description = descriptions[action]
+        description["fields"]["device_id"]["selector"] = {
+            "select": {"options": options, "mode": "dropdown", "custom_value": False}
+        }
+        async_set_service_schema(hass, DOMAIN, action, description)
+        # Notify clients that cached action descriptions have changed.
+        hass.bus.async_fire(
+            EVENT_SERVICE_REGISTERED, {"domain": DOMAIN, "service": action}
+        )
 
 
 async def load_fsv_mapping():
@@ -190,6 +239,7 @@ def _entry_ids(hass, entry_id=None):
 
 async def async_setup_services(hass: HomeAssistant):
     if hass.services.has_service(DOMAIN, SERVICE_SET_FSV):
+        await async_update_service_choices(hass)
         return
 
     async def handle_set_fsv(call: ServiceCall):
@@ -208,7 +258,9 @@ async def async_setup_services(hass: HomeAssistant):
             value = _encode_fsv_value(
                 raw_value, definition, call.data["disable_postprocessing"]
             )
-            coordinator, sub_device = _resolve_unit(hass, call.data)
+            coordinator, sub_device = _resolve_unit(
+                hass, call.data, [definition["messageId"]]
+            )
             unit_name = sub_device.name
             await coordinator.async_write_fsv(unit_name, definition["messageId"], value)
         except HomeAssistantError as err:
@@ -271,7 +323,9 @@ async def async_setup_services(hass: HomeAssistant):
                 )
                 for code, value in zip(codes, temperatures, strict=True)
             ]
-            coordinator, sub_device = _resolve_unit(hass, call.data)
+            coordinator, sub_device = _resolve_unit(
+                hass, call.data, [message_id for message_id, _ in settings]
+            )
             _LOGGER.warning(
                 "Setting %s for %s: outdoor endpoints affect BOTH %s curves",
                 curve,
@@ -354,3 +408,16 @@ async def async_setup_services(hass: HomeAssistant):
         ),
     )
     hass.services.async_register(DOMAIN, SERVICE_RELOAD, handle_reload)
+
+    async def async_device_updated(event):
+        device_id = event.data["device_id"]
+        device = dr.async_get(hass).async_get(device_id)
+        if (
+            device_id in hass.data.get((DOMAIN, "fsv_device_ids"), set())
+            or device is not None
+            and any(domain == DOMAIN for domain, _ in device.identifiers)
+        ):
+            await async_update_service_choices(hass)
+
+    hass.bus.async_listen(dr.EVENT_DEVICE_REGISTRY_UPDATED, async_device_updated)
+    await async_update_service_choices(hass)

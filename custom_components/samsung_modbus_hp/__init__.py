@@ -1,4 +1,4 @@
-from .services import async_setup_services
+from .services import async_setup_services, async_update_service_choices
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -47,6 +47,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coordinator.async_shutdown()
         await coordinator.async_close()
         del hass.data[DOMAIN][entry.entry_id]
+        await async_update_service_choices(hass)
     return unload_ok
 
 

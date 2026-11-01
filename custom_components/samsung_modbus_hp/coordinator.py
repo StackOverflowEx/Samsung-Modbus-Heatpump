@@ -30,6 +30,8 @@ from .const import DOMAIN
 from .device_template import DeviceTemplate
 
 _LOGGER = logging.getLogger(__name__)
+MODBUS_REQUEST_DELAY = 0.1
+FSV_BIND_DELAY = 1.0
 
 
 class SamsungModbusCoordinator(DataUpdateCoordinator):
@@ -70,7 +72,7 @@ class SamsungModbusCoordinator(DataUpdateCoordinator):
                 f"Cannot load device template {filename}: {err}"
             ) from err
         for sub_device in self.device_template.sub_devices:
-            if sub_device.messageIdBindingRegisterOffset is not None:
+            if sub_device.is_indoor:
                 try:
                     sub_device.validate_fsv_capacity()
                 except ValueError as err:
@@ -272,6 +274,12 @@ class SamsungModbusCoordinator(DataUpdateCoordinator):
                 raise ServiceValidationError(
                     "FSV message IDs must be unsigned 16-bit integers"
                 )
+        try:
+            sub_device.validate_fsv_message_ids(
+                [message_id for message_id, _ in settings]
+            )
+        except ValueError as err:
+            raise ServiceValidationError(str(err)) from err
         # Reuse one temporary slot. Hold the lock across all settings so reads
         # and other actions cannot interleave with a partially written curve.
         async with self._io_lock:
@@ -281,8 +289,13 @@ class SamsungModbusCoordinator(DataUpdateCoordinator):
                     address = sub_device.readMessageIdRegisterOffset + final_ids.index(
                         message_id
                     )
-                    await asyncio.sleep(1.0)
-                    await self._write_register(address, value, sub_device)
+                    await asyncio.sleep(FSV_BIND_DELAY)
+                    try:
+                        await self._write_register(address, value, sub_device)
+                    finally:
+                        # Keep the lock during the cooldown, including after the
+                        # final write, so another action/poll cannot skip the gap.
+                        await asyncio.sleep(MODBUS_REQUEST_DELAY)
                     if message_id in sub_device.messageIds:
                         timeout = self.entry.options.get(CONF_SCAN_INTERVAL, 30)
                         self._apply_pending_write(address, value, sub_device, timeout)
@@ -361,7 +374,7 @@ class SamsungModbusCoordinator(DataUpdateCoordinator):
                     sub_device.name,
                     now - started,
                 )
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(MODBUS_REQUEST_DELAY)
             except (ModbusException, OSError, HomeAssistantError) as err:
                 # DataUpdateCoordinator logs failures and recovery without flooding logs.
                 raise UpdateFailed(

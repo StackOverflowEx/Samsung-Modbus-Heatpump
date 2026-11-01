@@ -51,9 +51,12 @@ Change settings through **Configure**. For custom templates, copy the supplied Y
 | `capacity_unit` | string | — | Capacity unit, e.g. `kW` or `l`. |
 | `bindMessageIdRegisterOffset` | integer | — | Binding register; required for `messageId` entries. |
 | `readMessageIdRegisterOffset` | integer | — | First custom data register; required for `messageId` entries. |
+| `messageIdRange` | object | By binding offset | Inclusive `start`/`end` message IDs. Defaults: indoor `0x4000–0x7FFF`, outdoor `0x8000–0xBFFF`. |
 | `registers` | list | `[]` | Entity definitions using the keys below. |
 
 Except for the top-level `name` and `devices`, these keys belong inside each device definition.
+
+For example: `messageIdRange: {start: 0x4000, end: 0x7FFF}`. Binding offset `7000` identifies an indoor unit; `6000` identifies an outdoor unit. A narrower range restricts both configured message IDs and FSV actions.
 
 ### Register keys
 
@@ -116,20 +119,22 @@ For example, Frequency Response Control uses one register for a switch and a per
 
 | Device | Binding start | Custom data addresses | Maximum slots | Maximum with FSV actions |
 | --- | --- | --- | --- | --- |
-| Outdoor | `6000` | `4–49` | 46 | **45** |
+| Outdoor | `6000` | `4–49` | 46 | Not applicable |
 | Indoor unit n (`0–47`) | `7000` | `82 + 50n` to `99 + 50n` | 18 | **17** |
 
-Boundaries are validated during setup. Each unique message ID uses one slot, regardless of its entity or mask count. **FSV actions require one free slot**: a full configuration logs a warning and rejects FSV actions, while normal entities remain available. Multi-value actions reuse that slot sequentially.
+Boundaries are validated during setup. Each unique message ID uses one slot, regardless of its entity or mask count. **FSV actions require an indoor unit with one free slot**: using all 18 indoor slots logs a warning and rejects FSV actions. Multi-value actions reuse one slot sequentially.
 
 ## Actions
 
 Available in **Developer tools → Actions**, automations, and scripts (**Add action → Perform action**).
 
+FSV and curve dropdowns list loaded indoor units whose `messageIdRange` includes at least one known FSV. Every requested FSV is checked against that range before writing, including all four values of a curve.
+
 ### Set Field Setting Value — `samsung_modbus_hp.set_field_setting_value`
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
-| `device_id` | device | ✅ | Select the target unit from the dropdown. |
+| `device_id` | string | ✅ | Select the indoor unit; automations use its Home Assistant device ID. |
 | `fsv_code` | string/integer | ✅ | Code from [fsv_mapping.json](custom_components/samsung_modbus_hp/fsv_mapping.json), e.g. `2011`. |
 | `value` | number | ✅ | Numeric FSV: user units. Enum FSV: one of the numeric `options` in the mapping. |
 | `disable_postprocessing` | boolean | No | Default `false`. Check to skip numeric scaling and enum validation; send an integer raw value. |
@@ -144,7 +149,7 @@ All temperatures are whole °C and are scaled automatically (e.g. `40°C → 400
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
-| `device_id` | device | ✅ | Target unit. |
+| `device_id` | string | ✅ | Indoor unit selected by its Home Assistant device ID. |
 | `curve` | select | ✅ | `heating_1`, `heating_2`, `cooling_1`, or `cooling_2`. |
 | `outdoor_temperature_lower` | integer | ✅ | Heating: `−20–5`; cooling: `25–35`. |
 | `outdoor_temperature_upper` | integer | ✅ | Heating: `10–20`; cooling: `35–45`; must exceed the lower endpoint. |
@@ -155,7 +160,7 @@ All temperatures are whole °C and are scaled automatically (e.g. `40°C → 400
 - **Outdoor endpoints affect both curves of the selected mode.** Water endpoints affect only the selected curve; the action does not change the active curve or operating mode.
 - Heating must slope down: `2021 > 2022` / `2031 > 2032`. Flat or rising cooling curves are allowed with a log warning; hardware support is not verified.
 - Heating above **65°C** requires a compatible outdoor unit. For underfloor cooling, the manual warns against Cooling 1 below **16°C**; a curve alone does not provide dew-point protection.
-- Writes are sequential. On failure, earlier accepted writes are not rolled back. Success means Modbus acceptance, not verified heat-pump readback.
+- Each sequential write waits **1 second after binding** and **100 ms after writing**; polls and other actions cannot interrupt the sequence. On failure, earlier writes are not rolled back. Success means Modbus acceptance, not verified heat-pump readback.
 
 Example automation action:
 
